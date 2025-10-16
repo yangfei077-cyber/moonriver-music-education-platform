@@ -70,29 +70,12 @@ export default function Home() {
             </div>
 
             <div className="space-y-4">
-              <div className="space-y-2">
-                <button
-                  onClick={() => handleLogin('admin@moonriver.com')}
-                  className="block w-full max-w-xs mx-auto bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
-                >
-                  Login as Admin
-                </button>
-                <button
-                  onClick={() => handleLogin('educator@moonriver.com')}
-                  className="block w-full max-w-xs mx-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
-                >
-                  Login as Educator
-                </button>
-                <button
-                  onClick={() => handleLogin('student@moonriver.com')}
-                  className="block w-full max-w-xs mx-auto bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
-                >
-                  Login as Student
-                </button>
-              </div>
-              <div className="text-gray-400 text-sm">
-                <p>Demo accounts for testing different roles</p>
-              </div>
+              <a
+                href="/api/auth/login"
+                className="inline-block bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
+              >
+                Login with Auth0
+              </a>
             </div>
           </div>
         </div>
