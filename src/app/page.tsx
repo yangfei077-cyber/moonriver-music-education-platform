@@ -1,35 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { Music, Users, Settings, BookOpen, GraduationCap, Shield } from 'lucide-react';
+import { useUser } from '@auth0/nextjs-auth0/client';
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check for mock authentication
-    const urlParams = new URLSearchParams(window.location.search);
-    const loggedIn = urlParams.get('loggedIn');
-    const email = urlParams.get('email');
-    
-    if (loggedIn && email) {
-      setUser({ email });
-    }
-    setLoading(false);
-  }, []);
-
-  const handleLogin = (email: string) => {
-    window.location.href = `/?loggedIn=true&email=${email}`;
-  };
+  const { user, error, isLoading } = useUser();
 
   const handleLogout = () => {
-    window.location.href = '/';
+    window.location.href = '/api/auth/logout';
   };
 
-  if (loading) {
+  if (isLoading) {
     return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="flex justify-center items-center min-h-screen">Error: {error.message}</div>;
   }
 
   if (!user) {
@@ -83,17 +71,8 @@ export default function Home() {
     );
   }
 
-  // Mock role assignment based on email for demo
-  let roles = [];
-  if (user?.email === 'admin@moonriver.com') {
-    roles = ['admin'];
-  } else if (user?.email === 'educator@moonriver.com') {
-    roles = ['educator'];
-  } else if (user?.email === 'student@moonriver.com') {
-    roles = ['student'];
-  } else {
-    roles = ['student']; // default role
-  }
+  // Get roles from Auth0 user object (set by the callback handler)
+  const roles = (user as any)?.['https://moonriver.com/roles'] || ['student'];
 
   const isAdmin = roles.includes('admin');
   const isEducator = roles.includes('educator');
@@ -111,7 +90,7 @@ export default function Home() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-600">
-                Welcome, {user?.name}
+                Welcome, {user?.name || user?.email}
               </div>
               <div className="flex space-x-2">
                 {isAdmin && <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-xs">ADMIN</span>}
@@ -210,6 +189,7 @@ export default function Home() {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Session</h3>
               <div className="text-sm text-gray-600 space-y-2">
                 <p><strong>Email:</strong> {user?.email}</p>
+                <p><strong>Name:</strong> {user?.name || 'N/A'}</p>
                 <p><strong>Roles:</strong> {roles.join(', ')}</p>
                 <p><strong>Auth0 ID:</strong> {user?.sub}</p>
               </div>
