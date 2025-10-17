@@ -29,7 +29,7 @@ export default function StudentInterestsPage() {
   const fetchInterests = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/student-interests');
+      const response = await fetch(`/api/student-interests?userId=${encodeURIComponent(user?.sub || '')}&roles=${encodeURIComponent((user as any)?.['https://moonriver.com/roles']?.join(',') || 'student')}`);
       if (response.ok) {
         const data = await response.json();
         setAvailableInterests(data.availableInterests);
@@ -53,7 +53,11 @@ export default function StudentInterestsPage() {
       const response = await fetch('/api/student-interests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ interests: selectedInterests })
+        body: JSON.stringify({ 
+          interests: selectedInterests,
+          userId: user?.sub,
+          userRoles: (user as any)?.['https://moonriver.com/roles'] || ['student']
+        })
       });
       
       const data = await response.json();

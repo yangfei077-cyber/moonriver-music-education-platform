@@ -33,7 +33,7 @@ export default function StudentMessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [replyMessage, setReplyMessage] = useState({ subject: '', message: '' });
+  const [replyMessage, setReplyMessage] = useState({ message: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterUnread, setFilterUnread] = useState(false);
 
@@ -128,8 +128,8 @@ export default function StudentMessagesPage() {
   };
 
   const sendReply = async () => {
-    if (!selectedConversation || !replyMessage.subject || !replyMessage.message) {
-      alert('Please fill in both subject and message');
+    if (!selectedConversation || !replyMessage.message) {
+      alert('Please enter a message');
       return;
     }
 
@@ -141,13 +141,13 @@ export default function StudentMessagesPage() {
         body: JSON.stringify({
           action: 'sendMessage',
           educatorId: selectedConversation,
-          subject: replyMessage.subject,
+          subject: `Re: Message from ${user?.name || user?.email}`,
           message: replyMessage.message
         })
       });
 
       if (response.ok) {
-        setReplyMessage({ subject: '', message: '' });
+        setReplyMessage({ message: '' });
         await fetchMessages(selectedConversation);
         await fetchConversations();
       } else {
@@ -375,18 +375,6 @@ export default function StudentMessagesPage() {
                     <div className="space-y-3">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Subject
-                        </label>
-                        <input
-                          type="text"
-                          value={replyMessage.subject}
-                          onChange={(e) => setReplyMessage(prev => ({ ...prev, subject: e.target.value }))}
-                          placeholder="Message subject..."
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
                           Message
                         </label>
                         <textarea
@@ -399,7 +387,7 @@ export default function StudentMessagesPage() {
                       </div>
                       <button
                         onClick={sendReply}
-                        disabled={sending || !replyMessage.subject || !replyMessage.message}
+                        disabled={sending || !replyMessage.message}
                         className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md flex items-center disabled:opacity-50"
                       >
                         <Send className="w-4 h-4 mr-2" />

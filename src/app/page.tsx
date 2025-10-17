@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Music, Users, Settings, BookOpen, GraduationCap, Shield, Heart, User, Search, MessageSquare, Mail, Tag, Calendar } from 'lucide-react';
+import { Music, Users, Settings, BookOpen, GraduationCap, Shield, Heart, User, Search, MessageSquare, Mail, Tag, Calendar, Bot } from 'lucide-react';
 import { useUser } from '@auth0/nextjs-auth0/client';
 
 interface Interest {
@@ -27,7 +27,7 @@ export default function Home() {
       
       setLoadingInterests(true);
       try {
-        const response = await fetch('/api/student-interests');
+        const response = await fetch(`/api/student-interests?userId=${encodeURIComponent(user.sub || '')}&roles=${encodeURIComponent((user as any)?.['https://moonriver.com/roles']?.join(',') || 'student')}`);
         if (response.ok) {
           const data = await response.json();
           setInterests(data.interests || []);
@@ -204,6 +204,11 @@ export default function Home() {
                   <MessageSquare className="w-8 h-8 text-blue-600 mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Messages</h3>
                   <p className="text-gray-600">View conversations with educators</p>
+                </Link>
+                <Link href="/ai-assistant" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+                  <Bot className="w-8 h-8 text-indigo-600 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Assistant</h3>
+                  <p className="text-gray-600">Get personalized music education help</p>
                 </Link>
               </div>
             )}

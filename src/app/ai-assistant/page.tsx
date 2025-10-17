@@ -1,81 +1,73 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useUser } from '@auth0/nextjs-auth0/client';
-import { Bot, Send, Brain, BookOpen, Shield, User, ChevronDown, ChevronUp } from 'lucide-react';
+import Link from 'next/link';
+import { Bot, ArrowLeft, Send, MessageSquare, User, BookOpen, Users, Settings, Sparkles } from 'lucide-react';
 
-interface Message {
+interface ChatMessage {
   id: string;
-  type: 'user' | 'assistant';
+  role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  contextUsed?: number;
+  context?: string;
 }
 
-interface KnowledgeAccess {
-  public: number;
-  intermediate: number;
-  advanced: number;
-  admin: number;
-  total: number;
-}
-
-export default function AIAssistantPage() {
-  const { user, isLoading } = useUser();
-  const [messages, setMessages] = useState<Message[]>([]);
+export default function AIAssistant() {
+  const { user, error, isLoading } = useUser();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [knowledgeAccess, setKnowledgeAccess] = useState<KnowledgeAccess | null>(null);
-  const [userRole, setUserRole] = useState<string>('');
-  const [showKnowledgeInfo, setShowKnowledgeInfo] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
+  const [userInterests, setUserInterests] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (user) {
-      fetchKnowledgeAccess();
-      // Add welcome message
-      setMessages([{
-        id: '1',
-        type: 'assistant',
-        content: `Hello! I'm your AI Music Education Assistant. I can help you with music theory, instruments, teaching methods, and more. What would you like to learn about today?`,
-        timestamp: new Date()
-      }]);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const fetchKnowledgeAccess = async () => {
+  // Fetch user interests
+  const fetchUserInterests = async () => {
+    if (!user) return;
+    
     try {
-      const response = await fetch('/api/ai-assistant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'knowledge-access' })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setKnowledgeAccess(data.knowledgeAccess);
-        setUserRole(data.userRole);
+      const response = await fetch(`/api/student-interests?userId=${encodeURIComponent(user.sub || '')}&roles=${encodeURIComponent((user as any)?.['https://moonriver.com/roles']?.join(',') || 'student')}`);
+      if (response.ok) {
+        const data = await response.json();
+        const interests = (data.interests || []).map((interest: any) => interest.label);
+        setUserInterests(interests);
       }
     } catch (error) {
-      console.error('Error fetching knowledge access:', error);
+      console.error('Error fetching user interests:', error);
     }
   };
+
+  // Initialize with welcome message and fetch interests
+  useEffect(() => {
+    if (user && messages.length === 0) {
+      fetchUserInterests();
+      
+      const welcomeMessage: ChatMessage = {
+        id: 'welcome',
+        role: 'assistant',
+        content: `Hello ${user.name || user.email}! I'm your AI music education assistant. I can help you with:
+
+🎵 **Course Information** - Learn about available courses and instructors
+👨‍🏫 **Educator Recommendations** - Find the perfect teacher for your needs
+📚 **Learning Guidance** - Get personalized study recommendations
+🎹 **Music Theory** - Understand concepts and techniques
+📅 **Scheduling** - Information about classes and appointments
+
+I can also provide personalized recommendations based on your music interests! 
+
+What would you like to know about music education at MoonRiver?`,
+        timestamp: new Date()
+      };
+      setMessages([welcomeMessage]);
+    }
+  }, [user, messages.length]);
 
   const sendMessage = async () => {
     if (!inputMessage.trim() || loading) return;
 
-    const userMessage: Message = {
+    const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      type: 'user',
+      role: 'user',
       content: inputMessage.trim(),
       timestamp: new Date()
     };
@@ -87,43 +79,48 @@ export default function AIAssistantPage() {
     try {
       const response = await fetch('/api/ai-assistant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ 
-          action: 'chat',
-          query: inputMessage.trim()
-        })
+          message: inputMessage.trim(),
+          userRoles: user?.['https://moonriver.com/roles'] || ['student'],
+          userInfo: {
+            name: user?.name,
+            email: user?.email
+          },
+          userInterests: userInterests
+        }),
       });
-      
+
       const data = await response.json();
-      
+
       if (data.success) {
-        const assistantMessage: Message = {
+        const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
-          type: 'assistant',
+          role: 'assistant',
           content: data.response,
           timestamp: new Date(),
-          contextUsed: data.contextUsed
+          context: data.context
         };
-        
         setMessages(prev => [...prev, assistantMessage]);
       } else {
-        const errorMessage: Message = {
+        const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
-          type: 'assistant',
-          content: `Sorry, I encountered an error: ${data.error}`,
+          role: 'assistant',
+          content: 'Sorry, I encountered an error. Please try again.',
           timestamp: new Date()
         };
-        
         setMessages(prev => [...prev, errorMessage]);
       }
     } catch (error) {
-      const errorMessage: Message = {
+      console.error('Error sending message:', error);
+      const errorMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
-        type: 'assistant',
-        content: 'Sorry, I encountered a network error. Please try again.',
+        role: 'assistant',
+        content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date()
       };
-      
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
@@ -137,21 +134,53 @@ export default function AIAssistantPage() {
     }
   };
 
-  const clearChat = () => {
-    setMessages([{
-      id: '1',
-      type: 'assistant',
-      content: `Hello! I'm your AI Music Education Assistant. I can help you with music theory, instruments, teaching methods, and more. What would you like to learn about today?`,
-      timestamp: new Date()
-    }]);
+  const getQuickPrompts = () => {
+    const prompts = [
+      "What courses are available?",
+      "Who are the best instructors for beginners?",
+      "How do I schedule a lesson?",
+      "What should I practice daily?",
+      "Tell me about music theory basics"
+    ];
+    
+    // Add personalized prompts if user has interests
+    if (userInterests.length > 0) {
+      prompts.unshift(
+        `Recommend courses based on my interests (${userInterests.slice(0, 2).join(', ')})`,
+        `Which educators match my interests (${userInterests.slice(0, 2).join(', ')})?`
+      );
+    }
+    
+    return prompts;
   };
 
   if (isLoading) {
-    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <Bot className="w-16 h-16 text-purple-600 mx-auto mb-4 animate-pulse" />
+          <p className="text-gray-600">Loading AI Assistant...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
-    return <div className="flex justify-center items-center min-h-screen">Please log in to access AI Assistant</div>;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <Bot className="w-16 h-16 text-purple-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">AI Assistant</h2>
+          <p className="text-gray-600 mb-4">Please log in to use the AI assistant</p>
+          <Link
+            href="/api/auth/login"
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-md"
+          >
+            Log In
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -160,175 +189,180 @@ export default function AIAssistantPage() {
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
-              <Bot className="w-8 h-8 text-purple-600 mr-3" />
-              AI Music Education Assistant
-            </h1>
-            <p className="text-gray-600">
-              Your intelligent music education companion with role-based knowledge access
-            </p>
-          </div>
-
-          {/* Knowledge Access Info */}
-          {knowledgeAccess && (
-            <div className="bg-white rounded-lg shadow p-4 mb-6">
-              <button
-                onClick={() => setShowKnowledgeInfo(!showKnowledgeInfo)}
-                className="flex items-center justify-between w-full text-left"
+            <div className="mb-4">
+              <Link
+                href="/"
+                className="inline-flex items-center text-purple-600 hover:text-purple-800 font-medium"
               >
-                <div className="flex items-center">
-                  <Brain className="w-5 h-5 text-blue-600 mr-2" />
-                  <span className="font-medium text-gray-900">
-                    Your Knowledge Access ({userRole})
-                  </span>
-                </div>
-                {showKnowledgeInfo ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-              </button>
-              
-              {showKnowledgeInfo && (
-                <div className="mt-4 pt-4 border-t border-gray-200">
-                  <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-green-600">{knowledgeAccess.public}</div>
-                      <div className="text-gray-600">Public</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-blue-600">{knowledgeAccess.intermediate}</div>
-                      <div className="text-gray-600">Intermediate</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-purple-600">{knowledgeAccess.advanced}</div>
-                      <div className="text-gray-600">Advanced</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-red-600">{knowledgeAccess.admin}</div>
-                      <div className="text-gray-600">Admin</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-gray-900">{knowledgeAccess.total}</div>
-                      <div className="text-gray-600">Total</div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-3">
-                    Fine-grained authorization controls your access to different levels of music education knowledge
-                  </p>
-                </div>
-              )}
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Link>
             </div>
-          )}
-
-          {/* Chat Interface */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            {/* Chat Header */}
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
-                  <span className="text-sm font-medium text-gray-700">AI Assistant Online</span>
-                </div>
-                <button
-                  onClick={clearChat}
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Clear Chat
-                </button>
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+                  <Bot className="w-8 h-8 text-purple-600 mr-3" />
+                  AI Music Assistant
+                </h1>
+                <p className="text-gray-600">
+                  Your intelligent guide to music education at MoonRiver
+                </p>
+              </div>
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <Sparkles className="w-4 h-4" />
+                <span>Powered by DeepHermes 3</span>
               </div>
             </div>
+          </div>
 
-            {/* Messages */}
-            <div className="h-96 overflow-y-auto p-6 space-y-4">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                      message.type === 'user'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-100 text-gray-900'
-                    }`}
-                  >
-                    <div className="flex items-start">
-                      {message.type === 'assistant' && (
-                        <Bot className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0" />
-                      )}
-                      <div className="flex-1">
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                        {message.contextUsed && (
-                          <p className="text-xs opacity-75 mt-1">
-                            Used {message.contextUsed} knowledge sources
-                          </p>
+          <div className="grid lg:grid-cols-4 gap-6">
+            {/* Chat Interface */}
+            <div className="lg:col-span-3">
+              <div className="bg-white rounded-lg shadow-md h-[600px] flex flex-col">
+                {/* Chat Messages */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                          message.role === 'user'
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-gray-100 text-gray-900'
+                        }`}
+                      >
+                        <div className="flex items-center mb-1">
+                          {message.role === 'assistant' ? (
+                            <Bot className="w-4 h-4 mr-2 text-purple-600" />
+                          ) : (
+                            <User className="w-4 h-4 mr-2" />
+                          )}
+                          <span className="text-xs opacity-70">
+                            {message.role === 'user' ? 'You' : 'AI Assistant'}
+                          </span>
+                        </div>
+                        <div className="whitespace-pre-wrap">{message.content}</div>
+                        {message.context && (
+                          <div className="mt-2 text-xs opacity-70 italic">
+                            💡 {message.context}
+                          </div>
                         )}
                       </div>
                     </div>
-                    <p className="text-xs opacity-75 mt-1">
-                      {message.timestamp.toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-gray-100 text-gray-900 max-w-xs lg:max-w-md px-4 py-2 rounded-lg">
-                    <div className="flex items-center">
-                      <Bot className="w-4 h-4 mr-2" />
-                      <span className="text-sm">Thinking...</span>
+                  ))}
+                  {loading && (
+                    <div className="flex justify-start">
+                      <div className="bg-gray-100 rounded-lg px-4 py-2">
+                        <div className="flex items-center">
+                          <Bot className="w-4 h-4 mr-2 text-purple-600" />
+                          <div className="flex space-x-1">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                  )}
+                </div>
+
+                {/* Input Area */}
+                <div className="border-t border-gray-200 p-4">
+                  <div className="flex space-x-2">
+                    <textarea
+                      value={inputMessage}
+                      onChange={(e) => setInputMessage(e.target.value)}
+                      onKeyPress={handleKeyPress}
+                      placeholder="Ask me anything about music education..."
+                      className="flex-1 resize-none border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      rows={2}
+                    />
+                    <button
+                      onClick={sendMessage}
+                      disabled={loading || !inputMessage.trim()}
+                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md disabled:opacity-50 flex items-center"
+                    >
+                      <Send className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-              )}
-              
-              <div ref={messagesEndRef} />
-            </div>
-
-            {/* Input */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-              <div className="flex space-x-4">
-                <input
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask me anything about music education..."
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  disabled={loading}
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={!inputMessage.trim() || loading}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
               </div>
             </div>
-          </div>
 
-          {/* Fine-Grained Authorization Info */}
-          <div className="mt-8 bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-              <Shield className="w-5 h-5 text-green-600 mr-2" />
-              Fine-Grained Authorization in Action
-            </h3>
-            <div className="grid md:grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">Knowledge Access Control:</h4>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• Students: Basic + Intermediate knowledge</li>
-                  <li>• Educators: Basic + Intermediate + Advanced</li>
-                  <li>• Admins: All knowledge levels</li>
-                </ul>
+            {/* Sidebar */}
+            <div className="lg:col-span-1 space-y-6">
+              {/* Quick Prompts */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <MessageSquare className="w-5 h-5 mr-2 text-purple-600" />
+                  Quick Prompts
+                </h3>
+                <div className="space-y-2">
+                  {getQuickPrompts().map((prompt, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setInputMessage(prompt)}
+                      className="w-full text-left text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 p-2 rounded-md transition-colors"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">RAG Pipeline Features:</h4>
-                <ul className="space-y-1 text-gray-600">
-                  <li>• Role-based knowledge retrieval</li>
-                  <li>• Context-aware AI responses</li>
-                  <li>• Token Vault integration for LLM access</li>
-                  <li>• Secure knowledge filtering</li>
-                </ul>
+
+              {/* Knowledge Base Info */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                  <BookOpen className="w-5 h-5 mr-2 text-purple-600" />
+                  Knowledge Base
+                </h3>
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center">
+                    <Users className="w-4 h-4 mr-2 text-blue-500" />
+                    <span>Course & Educator Info</span>
+                  </div>
+                  <div className="flex items-center">
+                    <User className="w-4 h-4 mr-2 text-green-500" />
+                    <span>Personalized Recommendations</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Settings className="w-4 h-4 mr-2 text-purple-500" />
+                    <span>Role-based Access</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* User Info */}
+              <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Profile</h3>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <span className="font-medium">Name:</span> {user.name || user.email}
+                  </div>
+                  <div>
+                    <span className="font-medium">Roles:</span> {(user as any)?.['https://moonriver.com/roles']?.join(', ') || 'Student'}
+                  </div>
+                  <div>
+                    <span className="font-medium">AI Model:</span> DeepHermes 3
+                  </div>
+                  {userInterests.length > 0 && (
+                    <div>
+                      <span className="font-medium">Music Interests:</span>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {userInterests.map((interest, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800"
+                          >
+                            {interest}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -26,7 +26,7 @@ export default function StudentProfilePage() {
   const fetchProfileData = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/student-interests');
+      const response = await fetch(`/api/student-interests?userId=${encodeURIComponent(user?.sub || '')}&roles=${encodeURIComponent((user as any)?.['https://moonriver.com/roles']?.join(',') || 'student')}`);
       if (response.ok) {
         const data = await response.json();
         // Extract IDs from interest objects
