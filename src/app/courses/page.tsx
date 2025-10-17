@@ -1,98 +1,115 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { BookOpen, Users, GraduationCap, Plus, Edit, Trash2, Play, Pause } from 'lucide-react';
+import { useUser } from '@auth0/nextjs-auth0/client';
+import Link from 'next/link';
+import { BookOpen, Clock, Users, DollarSign, Calendar, User, Filter, Search, Star, CheckCircle, ArrowLeft } from 'lucide-react';
 
 interface Course {
   id: number;
   title: string;
-  instructor: string;
-  level: string;
   description: string;
+  instructor: string;
+  instructorEmail: string;
+  level: string;
   duration: string;
-  lessons: Lesson[];
+  maxStudents: number;
+  currentStudents: number;
+  price: string;
+  schedule: string;
+  startDate: string;
+  endDate: string;
+  topics: string[];
+  prerequisites: string;
+  image: string;
+  isEnrolled?: boolean;
+  canEnroll?: boolean;
 }
 
-interface Lesson {
-  id: number;
-  title: string;
-  duration: string;
-  type: 'video' | 'audio' | 'text' | 'quiz';
-  completed: boolean;
-}
-
-export default function CoursesPage() {
-  const [user, setUser] = useState<any>(null);
+export default function CourseCatalogPage() {
+  const { user, isLoading } = useUser();
   const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newCourse, setNewCourse] = useState({
-    title: '',
+  const [loading, setLoading] = useState(true);
+  const [enrolling, setEnrolling] = useState<number | null>(null);
+  const [filters, setFilters] = useState<{
+    level: string;
+    instructor: string;
+    search: string;
+  }>({
+    level: '',
     instructor: '',
-    level: 'Beginner',
-    description: '',
-    duration: '',
+    search: ''
   });
+  const [availableFilters, setAvailableFilters] = useState<{
+    levels: string[];
+    instructors: string[];
+  }>({
+    levels: [],
+    instructors: []
+  });
+  const [allCourses, setAllCourses] = useState<Course[]>([]);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    // Check for mock authentication
-    const urlParams = new URLSearchParams(window.location.search);
-    const loggedIn = urlParams.get('loggedIn');
-    const email = urlParams.get('email');
-    
-    if (loggedIn && email) {
-      setUser({ email });
+    if (user) {
       fetchCourses();
     }
-  }, []);
+  }, [user]);
+
+  useEffect(() => {
+    // Debounce search to avoid too many API calls
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      applyFilters();
+    }, 300); // 300ms debounce
+
+    setSearchTimeout(timeout);
+
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [filters.search]);
+
+  useEffect(() => {
+    // Apply filters immediately for level and instructor changes
+    if (allCourses.length > 0) {
+      applyFilters();
+    }
+  }, [filters.level, filters.instructor]);
 
   const fetchCourses = async () => {
     setLoading(true);
     try {
-      // Mock data for demonstration
-      const mockCourses: Course[] = [
-        {
-          id: 1,
-          title: 'Piano Fundamentals',
-          instructor: 'Dr. Sarah Johnson',
-          level: 'Beginner',
-          description: 'Learn the basics of piano playing, including proper posture, hand positioning, and basic scales.',
-          duration: '8 weeks',
-          lessons: [
-            { id: 1, title: 'Introduction to Piano', duration: '15 min', type: 'video', completed: true },
-            { id: 2, title: 'Hand Positioning', duration: '20 min', type: 'video', completed: true },
-            { id: 3, title: 'Basic Scales', duration: '25 min', type: 'video', completed: false },
-            { id: 4, title: 'Scale Practice Quiz', duration: '10 min', type: 'quiz', completed: false },
-          ],
-        },
-        {
-          id: 2,
-          title: 'Advanced Guitar Techniques',
-          instructor: 'Mike Chen',
-          level: 'Advanced',
-          description: 'Master advanced guitar techniques including fingerpicking, jazz improvisation, and complex chord progressions.',
-          duration: '12 weeks',
-          lessons: [
-            { id: 5, title: 'Fingerpicking Patterns', duration: '30 min', type: 'video', completed: false },
-            { id: 6, title: 'Jazz Theory Basics', duration: '25 min', type: 'text', completed: false },
-            { id: 7, title: 'Improvisation Techniques', duration: '35 min', type: 'video', completed: false },
-          ],
-        },
-        {
-          id: 3,
-          title: 'Music Theory Essentials',
-          instructor: 'Prof. Emily Davis',
-          level: 'Intermediate',
-          description: 'Comprehensive music theory course covering scales, chords, harmony, and composition basics.',
-          duration: '10 weeks',
-          lessons: [
-            { id: 8, title: 'Introduction to Scales', duration: '20 min', type: 'video', completed: true },
-            { id: 9, title: 'Chord Construction', duration: '25 min', type: 'video', completed: false },
-            { id: 10, title: 'Harmony Principles', duration: '30 min', type: 'text', completed: false },
-          ],
-        },
-      ];
-      setCourses(mockCourses);
+      const params = new URLSearchParams();
+      if (filters.level) params.append('level', filters.level);
+      if (filters.instructor) params.append('instructor', filters.instructor);
+
+      const response = await fetch(`/api/courses?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Courses API response:', data); // Debug log
+        setAllCourses(data.courses);
+        setAvailableFilters(data.filters);
+        // Set courses directly with fetched data, then apply search filter
+        let filteredCourses = data.courses;
+        if (filters.search.trim()) {
+          const searchTerm = filters.search.toLowerCase().trim();
+          filteredCourses = filteredCourses.filter((course: Course) =>
+            course.title.toLowerCase().includes(searchTerm) ||
+            course.description.toLowerCase().includes(searchTerm) ||
+            course.instructor.toLowerCase().includes(searchTerm) ||
+            course.topics.some(topic => topic.toLowerCase().includes(searchTerm))
+          );
+        }
+        setCourses(filteredCourses);
+      } else {
+        console.error('Failed to fetch courses:', response.status, response.statusText);
+      }
     } catch (error) {
       console.error('Error fetching courses:', error);
     } finally {
@@ -100,269 +117,339 @@ export default function CoursesPage() {
     }
   };
 
-  const createCourse = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCourse.title || !newCourse.instructor) return;
+  const applyFilters = () => {
+    let filteredCourses = [...allCourses];
 
-    const course: Course = {
-      id: Date.now(),
-      title: newCourse.title,
-      instructor: newCourse.instructor,
-      level: newCourse.level,
-      description: newCourse.description,
-      duration: newCourse.duration,
-      lessons: [],
-    };
+    // Apply search filter
+    if (filters.search.trim()) {
+      const searchTerm = filters.search.toLowerCase().trim();
+      filteredCourses = filteredCourses.filter((course: Course) =>
+        course.title.toLowerCase().includes(searchTerm) ||
+        course.description.toLowerCase().includes(searchTerm) ||
+        course.instructor.toLowerCase().includes(searchTerm) ||
+        course.topics.some(topic => topic.toLowerCase().includes(searchTerm))
+      );
+    }
 
-    setCourses([...courses, course]);
-    setNewCourse({ title: '', instructor: '', level: 'Beginner', description: '', duration: '' });
-    setShowCreateForm(false);
+    setCourses(filteredCourses);
   };
 
-  const deleteCourse = async (courseId: number) => {
-    setCourses(courses.filter(course => course.id !== courseId));
+  const enrollInCourse = async (courseId: number) => {
+    setEnrolling(courseId);
+    try {
+      const response = await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'enroll', courseId })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update course in the list
+        setCourses(prev => prev.map(course => 
+          course.id === courseId 
+            ? { ...course, isEnrolled: true, canEnroll: false, currentStudents: course.currentStudents + 1 }
+            : course
+        ));
+      } else {
+        alert(data.error || 'Failed to enroll in course');
+      }
+    } catch (error) {
+      alert('Network error. Please try again.');
+    } finally {
+      setEnrolling(null);
+    }
   };
 
-  const toggleLessonCompletion = (courseId: number, lessonId: number) => {
-    setCourses(courses.map(course => 
-      course.id === courseId 
-        ? {
-            ...course,
-            lessons: course.lessons.map(lesson =>
-              lesson.id === lessonId 
-                ? { ...lesson, completed: !lesson.completed }
-                : lesson
-            )
-          }
-        : course
-    ));
+  const unenrollFromCourse = async (courseId: number) => {
+    setEnrolling(courseId);
+    try {
+      const response = await fetch('/api/courses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'unenroll', courseId })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update course in the list
+        setCourses(prev => prev.map(course => 
+          course.id === courseId 
+            ? { ...course, isEnrolled: false, canEnroll: true, currentStudents: course.currentStudents - 1 }
+            : course
+        ));
+      } else {
+        alert(data.error || 'Failed to unenroll from course');
+      }
+    } catch (error) {
+      alert('Network error. Please try again.');
+    } finally {
+      setEnrolling(null);
+    }
   };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const getLevelColor = (level: string) => {
+    switch (level.toLowerCase()) {
+      case 'beginner': return 'bg-green-100 text-green-800';
+      case 'intermediate': return 'bg-yellow-100 text-yellow-800';
+      case 'advanced': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (isLoading || loading) {
+    return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
+  }
 
   if (!user) {
     return <div className="flex justify-center items-center min-h-screen">Please log in to view courses</div>;
   }
 
-  // Mock role assignment based on email for demo
-  let roles = [];
-  if (user?.email === 'admin@moonriver.com') {
-    roles = ['admin'];
-  } else if (user?.email === 'educator@moonriver.com') {
-    roles = ['educator'];
-  } else if (user?.email === 'student@moonriver.com') {
-    roles = ['student'];
-  } else {
-    roles = ['student']; // default role
-  }
-  const isAdmin = roles.includes('admin');
-  const isEducator = roles.includes('educator');
-  const canCreateCourses = isAdmin || isEducator;
+  console.log('Course page state:', { 
+    user: user?.email, 
+    allCourses: allCourses.length, 
+    courses: courses.length, 
+    loading 
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-              <BookOpen className="w-6 h-6 text-purple-600 mr-2" />
-              Music Courses
-            </h1>
-            {canCreateCourses && (
-              <button
-                onClick={() => setShowCreateForm(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center"
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <div className="mb-4">
+              <Link
+                href="/"
+                className="inline-flex items-center text-purple-600 hover:text-purple-800 font-medium"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Create Course
-              </button>
-            )}
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Link>
+            </div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
+              <BookOpen className="w-8 h-8 text-purple-600 mr-3" />
+              Course Catalog
+            </h1>
+            <p className="text-gray-600">
+              Browse and enroll in music education courses
+            </p>
           </div>
 
-          {/* Create Course Form */}
-          {showCreateForm && (
-            <div className="bg-white rounded-lg shadow p-6 mb-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Create New Course</h2>
-              <form onSubmit={createCourse} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Course Title
-                    </label>
-                    <input
-                      type="text"
-                      value={newCourse.title}
-                      onChange={(e) => setNewCourse({...newCourse, title: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Instructor
-                    </label>
-                    <input
-                      type="text"
-                      value={newCourse.instructor}
-                      onChange={(e) => setNewCourse({...newCourse, instructor: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Level
-                    </label>
-                    <select
-                      value={newCourse.level}
-                      onChange={(e) => setNewCourse({...newCourse, level: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="Beginner">Beginner</option>
-                      <option value="Intermediate">Intermediate</option>
-                      <option value="Advanced">Advanced</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Duration
-                    </label>
-                    <input
-                      type="text"
-                      value={newCourse.duration}
-                      onChange={(e) => setNewCourse({...newCourse, duration: e.target.value})}
-                      placeholder="e.g., 8 weeks"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={newCourse.description}
-                    onChange={(e) => setNewCourse({...newCourse, description: e.target.value})}
-                    rows={3}
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Filter className="w-5 h-5 mr-2" />
+              Filter Courses
+            </h2>
+            
+            <div className="grid md:grid-cols-4 gap-4">
+              {/* Search */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <Search className="w-4 h-4 inline mr-1" />
+                  Search
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    placeholder="Search courses..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                   />
+                  {filters.search && (
+                    <button
+                      onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
-                <div className="flex space-x-4">
-                  <button
-                    type="submit"
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md"
-                  >
-                    Create Course
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateForm(false)}
-                    className="bg-gray-300 hover:bg-gray-400 text-gray-700 px-4 py-2 rounded-md"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+              </div>
 
-          {/* Courses Grid */}
-          {loading ? (
-            <div className="text-center py-8">Loading courses...</div>
-          ) : (
-            <div className="grid lg:grid-cols-2 gap-6">
-              {courses.map((course) => (
-                <div key={course.id} className="bg-white rounded-lg shadow p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{course.title}</h3>
-                      <p className="text-sm text-gray-600">by {course.instructor}</p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        course.level === 'Beginner' ? 'bg-green-100 text-green-800' :
-                        course.level === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {course.level}
-                      </span>
-                      {canCreateCourses && (
-                        <div className="flex space-x-1">
-                          <button className="text-blue-600 hover:text-blue-800">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => deleteCourse(course.id)}
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <p className="text-gray-600 mb-4">{course.description}</p>
-                  
-                  <div className="flex justify-between items-center mb-4">
-                    <span className="text-sm text-gray-500">Duration: {course.duration}</span>
-                    <span className="text-sm text-gray-500">
-                      {course.lessons.filter(l => l.completed).length}/{course.lessons.length} lessons completed
+              {/* Level Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Level
+                </label>
+                <select
+                  value={filters.level}
+                  onChange={(e) => setFilters(prev => ({ ...prev, level: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">All Levels</option>
+                  {availableFilters.levels.map(level => (
+                    <option key={level} value={level}>{level}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Instructor Filter */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <User className="w-4 h-4 inline mr-1" />
+                  Instructor
+                </label>
+                <select
+                  value={filters.instructor}
+                  onChange={(e) => setFilters(prev => ({ ...prev, instructor: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="">All Instructors</option>
+                  {availableFilters.instructors.map(instructor => (
+                    <option key={instructor} value={instructor}>{instructor}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Clear Filters */}
+              <div className="flex items-end">
+                <button
+                  onClick={() => setFilters({ level: '', instructor: '', search: '' })}
+                  className="w-full bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Course Grid */}
+          <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-6">
+            {courses.map((course) => (
+              <div key={course.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                {/* Course Image */}
+                <div className="h-48 bg-gradient-to-br from-purple-400 to-blue-500 flex items-center justify-center">
+                  <BookOpen className="w-16 h-16 text-white opacity-50" />
+                </div>
+
+                {/* Course Content */}
+                <div className="p-6">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-xl font-semibold text-gray-900">{course.title}</h3>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getLevelColor(course.level)}`}>
+                      {course.level}
                     </span>
                   </div>
 
-                  {/* Progress Bar */}
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-                    <div 
-                      className="bg-purple-600 h-2 rounded-full" 
-                      style={{ 
-                        width: `${course.lessons.length > 0 ? (course.lessons.filter(l => l.completed).length / course.lessons.length) * 100 : 0}%` 
-                      }}
-                    ></div>
+                  {/* Instructor */}
+                  <div className="flex items-center text-sm text-gray-600 mb-3">
+                    <User className="w-4 h-4 mr-1" />
+                    <span>{course.instructor}</span>
                   </div>
 
-                  {/* Lessons */}
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Lessons:</h4>
-                    <div className="space-y-2">
-                      {course.lessons.map((lesson) => (
-                        <div key={lesson.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                          <div className="flex items-center">
-                            <button
-                              onClick={() => toggleLessonCompletion(course.id, lesson.id)}
-                              className="mr-3 text-gray-400 hover:text-gray-600"
-                            >
-                              {lesson.completed ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-                            </button>
-                            <div>
-                              <span className={`text-sm ${lesson.completed ? 'line-through text-gray-500' : 'text-gray-900'}`}>
-                                {lesson.title}
-                              </span>
-                              <span className="text-xs text-gray-500 ml-2">({lesson.duration})</span>
-                            </div>
-                          </div>
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            lesson.type === 'video' ? 'bg-blue-100 text-blue-800' :
-                            lesson.type === 'audio' ? 'bg-green-100 text-green-800' :
-                            lesson.type === 'text' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-purple-100 text-purple-800'
-                          }`}>
-                            {lesson.type}
-                          </span>
-                        </div>
-                      ))}
+                  {/* Description */}
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                    {course.description}
+                  </p>
+
+                  {/* Course Details */}
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Clock className="w-4 h-4 mr-2" />
+                      <span>{course.duration}</span>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      <span>{course.schedule}</span>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <Users className="w-4 h-4 mr-2" />
+                      <span>{course.currentStudents}/{course.maxStudents} students</span>
+                    </div>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <DollarSign className="w-4 h-4 mr-2" />
+                      <span>{course.price}</span>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
 
-          {courses.length === 0 && !loading && (
+                  {/* Topics */}
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Topics Covered:</h4>
+                    <div className="flex flex-wrap gap-1">
+                      {course.topics.slice(0, 3).map((topic, index) => (
+                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                          {topic}
+                        </span>
+                      ))}
+                      {course.topics.length > 3 && (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                          +{course.topics.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Enrollment Button */}
+                  <div className="pt-4 border-t border-gray-200">
+                    {course.isEnrolled ? (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center text-green-600">
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          <span className="text-sm font-medium">Enrolled</span>
+                        </div>
+                        <button
+                          onClick={() => unenrollFromCourse(course.id)}
+                          disabled={enrolling === course.id}
+                          className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
+                        >
+                          {enrolling === course.id ? 'Unenrolling...' : 'Unenroll'}
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => enrollInCourse(course.id)}
+                        disabled={!course.canEnroll || enrolling === course.id}
+                        className={`w-full py-2 px-4 rounded-md font-medium transition-colors ${
+                          course.canEnroll
+                            ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        } disabled:opacity-50`}
+                      >
+                        {enrolling === course.id 
+                          ? 'Enrolling...' 
+                          : course.canEnroll 
+                            ? 'Enroll Now' 
+                            : 'Course Full'
+                        }
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* No Courses Message */}
+          {courses.length === 0 && (
             <div className="text-center py-12">
               <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No courses available</h3>
-              <p className="text-gray-500">Check back later for new music courses.</p>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No Courses Found</h3>
+              <p className="text-gray-600 mb-4">
+                Try adjusting your filters or check back later for new courses.
+              </p>
+              <div className="text-sm text-gray-500 mb-6">
+                Debug: {allCourses.length} total courses, {courses.length} filtered courses
+              </div>
+              <button
+                onClick={() => setFilters({ level: '', instructor: '', search: '' })}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md"
+              >
+                Clear Filters
+              </button>
             </div>
           )}
         </div>

@@ -97,13 +97,14 @@ export default function TokenVaultPage() {
               Token Vault
             </h1>
             <p className="text-gray-600 mb-6">
-              Securely store and manage API tokens for your music education tools. 
+              Securely store and manage your existing API tokens for music education tools. 
+              Add tokens you already have from services like Spotify, OpenAI, or Google Cloud.
               All tokens are encrypted and stored securely on the server.
             </p>
 
             {/* Add Token Form */}
             <form onSubmit={addToken} className="bg-gray-50 rounded-lg p-4 mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add New Token</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Your Existing API Token</h3>
               <div className="grid md:grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -113,7 +114,7 @@ export default function TokenVaultPage() {
                     type="text"
                     value={newTokenName}
                     onChange={(e) => setNewTokenName(e.target.value)}
-                    placeholder="e.g., Spotify API Key"
+                    placeholder="e.g., My Spotify API Key"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                     required
                   />
@@ -127,7 +128,7 @@ export default function TokenVaultPage() {
                       type={showTokenValue ? 'text' : 'password'}
                       value={newTokenValue}
                       onChange={(e) => setNewTokenValue(e.target.value)}
-                      placeholder="Enter your token value"
+                      placeholder="Paste your existing API token here"
                       className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
                       required
                     />
@@ -157,7 +158,7 @@ export default function TokenVaultPage() {
               {tokens.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Key className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>No tokens stored yet. Add your first token above.</p>
+                  <p>No tokens stored yet. Add your first existing API token above.</p>
                 </div>
               ) : (
                 <div className="space-y-3">

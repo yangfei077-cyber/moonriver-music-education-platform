@@ -1,16 +1,48 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Music, Users, Settings, BookOpen, GraduationCap, Shield } from 'lucide-react';
+import { Music, Users, Settings, BookOpen, GraduationCap, Shield, Heart, User, Search, MessageSquare, Mail, Tag, Calendar } from 'lucide-react';
 import { useUser } from '@auth0/nextjs-auth0/client';
+
+interface Interest {
+  id: string;
+  label: string;
+  category: string;
+}
 
 export default function Home() {
   const { user, error, isLoading } = useUser();
+  const [interests, setInterests] = useState<Interest[]>([]);
+  const [loadingInterests, setLoadingInterests] = useState(false);
 
   const handleLogout = () => {
     window.location.href = '/api/auth/logout';
   };
+
+  // Fetch user interests
+  useEffect(() => {
+    const fetchInterests = async () => {
+      if (!user) return;
+      
+      setLoadingInterests(true);
+      try {
+        const response = await fetch('/api/student-interests');
+        if (response.ok) {
+          const data = await response.json();
+          setInterests(data.interests || []);
+        } else {
+          console.error('Failed to fetch interests:', response.status, response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching interests:', error);
+      } finally {
+        setLoadingInterests(false);
+      }
+    };
+
+    fetchInterests();
+  }, [user]);
 
   if (isLoading) {
     return <div className="flex justify-center items-center min-h-screen">Loading...</div>;
@@ -148,6 +180,16 @@ export default function Home() {
 
             {isStudent && (
               <div className="grid md:grid-cols-2 gap-6">
+                <Link href="/courses" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+                  <Search className="w-8 h-8 text-blue-600 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Course Catalog</h3>
+                  <p className="text-gray-600">Browse and enroll in courses</p>
+                </Link>
+                <Link href="/educators" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+                  <MessageSquare className="w-8 h-8 text-green-600 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Educator Directory</h3>
+                  <p className="text-gray-600">Connect with educators and send messages</p>
+                </Link>
                 <Link href="/student/courses" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
                   <BookOpen className="w-8 h-8 text-green-600 mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">My Courses</h3>
@@ -157,6 +199,11 @@ export default function Home() {
                   <GraduationCap className="w-8 h-8 text-purple-600 mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">My Progress</h3>
                   <p className="text-gray-600">Track your learning journey</p>
+                </Link>
+                <Link href="/student/messages" className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
+                  <MessageSquare className="w-8 h-8 text-blue-600 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Messages</h3>
+                  <p className="text-gray-600">View conversations with educators</p>
                 </Link>
               </div>
             )}
@@ -186,12 +233,112 @@ export default function Home() {
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Session</h3>
-              <div className="text-sm text-gray-600 space-y-2">
-                <p><strong>Email:</strong> {user?.email}</p>
-                <p><strong>Name:</strong> {user?.name || 'N/A'}</p>
-                <p><strong>Roles:</strong> {roles.join(', ')}</p>
-                <p><strong>Auth0 ID:</strong> {user?.sub}</p>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <User className="w-5 h-5 text-purple-600 mr-2" />
+                My Profile
+              </h3>
+              
+              {/* Basic Information */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Basic Information</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <Mail className="w-3 h-3 inline mr-1" />
+                      Email
+                    </label>
+                    <p className="text-gray-900 bg-gray-50 px-2 py-1 rounded text-xs">
+                      {user?.email}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <User className="w-3 h-3 inline mr-1" />
+                      Name
+                    </label>
+                    <p className="text-gray-900 bg-gray-50 px-2 py-1 rounded text-xs">
+                      {user?.name || 'Not provided'}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <Tag className="w-3 h-3 inline mr-1" />
+                      Role
+                    </label>
+                    <p className="text-gray-900 bg-gray-50 px-2 py-1 rounded text-xs">
+                      {roles[0]?.charAt(0).toUpperCase() + roles[0]?.slice(1) || 'Student'}
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <Calendar className="w-3 h-3 inline mr-1" />
+                      Member Since
+                    </label>
+                    <p className="text-gray-900 bg-gray-50 px-2 py-1 rounded text-xs">
+                      {new Date().toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Interests */}
+              {isStudent && (
+                <div className="mb-6">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                    <Heart className="w-3 h-3 mr-1" />
+                    My Interests
+                  </h4>
+                  {loadingInterests ? (
+                    <p className="text-xs text-gray-500">Loading interests...</p>
+                  ) : interests.length > 0 ? (
+                    <div className="flex flex-wrap gap-1">
+                      {interests.slice(0, 6).map((interest) => (
+                        <span
+                          key={interest.id}
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800"
+                        >
+                          {interest.label}
+                        </span>
+                      ))}
+                      {interests.length > 6 && (
+                        <span 
+                          key="more-interests"
+                          className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-600"
+                        >
+                          +{interests.length - 6} more
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">No interests selected yet</p>
+                  )}
+                </div>
+              )}
+
+              {/* Quick Actions */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Quick Actions</h4>
+                <div className="space-y-2">
+                  {isStudent && (
+                    <>
+                      <Link
+                        href="/student/interests"
+                        className="block w-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded text-xs text-center"
+                      >
+                        Manage Interests
+                      </Link>
+                      <Link
+                        href="/student/profile"
+                        className="block w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-xs text-center"
+                      >
+                        View Full Profile
+                      </Link>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
