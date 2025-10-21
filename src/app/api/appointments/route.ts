@@ -1,153 +1,8 @@
 import { getSession } from '@auth0/nextjs-auth0';
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 
-// Token Vault integration for Google Calendar (using the same class as token-vault API)
-class TokenVault {
-  private static instance: TokenVault;
-  private tokens: Map<string, any> = new Map();
+// Simple in-memory storage for appointments
 
-  static getInstance(): TokenVault {
-    if (!TokenVault.instance) {
-      TokenVault.instance = new TokenVault();
-    }
-    return TokenVault.instance;
-  }
-
-  encryptToken(token: string): string {
-    const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
-    
-    let encrypted = cipher.update(token, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    return iv.toString('hex') + ':' + encrypted;
-  }
-
-  decryptToken(encryptedToken: string): string {
-    const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
-    const [ivHex, encrypted] = encryptedToken.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipher(algorithm, key);
-    
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  }
-
-  getToken(userId: string, tokenName: string): string | null {
-    const key = `${userId}:${tokenName}`;
-    const tokenData = this.tokens.get(key);
-    
-    if (!tokenData) {
-      return null;
-    }
-
-    // Update last used timestamp
-    tokenData.lastUsed = new Date().toISOString();
-    this.tokens.set(key, tokenData);
-
-    return this.decryptToken(tokenData.encryptedToken);
-  }
-}
-
-// Google Calendar API integration
-class GoogleCalendarService {
-  static async createEvent(accessToken: string, event: any): Promise<any> {
-    try {
-      const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(event),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Google Calendar API error: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Failed to create Google Calendar event:', error);
-      throw error;
-    }
-  }
-
-  static async updateEvent(accessToken: string, eventId: string, event: any): Promise<any> {
-    try {
-      const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(event),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Google Calendar API error: ${response.statusText}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Failed to update Google Calendar event:', error);
-      throw error;
-    }
-  }
-
-  static async deleteEvent(accessToken: string, eventId: string): Promise<void> {
-    try {
-      const response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Google Calendar API error: ${response.statusText}`);
-      }
-    } catch (error) {
-      console.error('Failed to delete Google Calendar event:', error);
-      throw error;
-    }
-  }
-
-  static formatEventForGoogle(appointment: any): any {
-    return {
-      summary: appointment.title,
-      description: appointment.description || '',
-      start: {
-        dateTime: appointment.startTime,
-        timeZone: 'UTC',
-      },
-      end: {
-        dateTime: appointment.endTime,
-        timeZone: 'UTC',
-      },
-      attendees: [
-        {
-          email: appointment.studentEmail,
-          displayName: appointment.studentName,
-        },
-      ],
-      location: appointment.location,
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: 'email', minutes: 24 * 60 },
-          { method: 'popup', minutes: 30 },
-        ],
-      },
-    };
-  }
-}
 
 // Appointment storage (in production, use a database)
 const appointments: Map<string, any> = new Map();
@@ -159,9 +14,9 @@ const demoAppointments = [
     id: 1,
     educatorId: 'educator@moonriver.com',
     educatorName: 'Dr. Sarah Johnson',
-    studentId: 'student-1',
+    studentId: 'google-oauth2|116668263889504416152',
     studentName: 'Demo Student',
-    studentEmail: 'student@moonriver.com',
+    studentEmail: 'yangfei077@gmail.com',
     title: 'Piano Fundamentals - Lesson 1',
     description: 'Introduction to piano basics, hand positioning, and first scales',
     startTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
@@ -176,9 +31,9 @@ const demoAppointments = [
     id: 2,
     educatorId: 'educator@moonriver.com',
     educatorName: 'Dr. Sarah Johnson',
-    studentId: 'student-1',
+    studentId: 'google-oauth2|116668263889504416152',
     studentName: 'Demo Student',
-    studentEmail: 'student@moonriver.com',
+    studentEmail: 'yangfei077@gmail.com',
     title: 'Music Theory Session',
     description: 'Review of chord progressions and scale construction',
     startTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
@@ -215,7 +70,7 @@ demoAppointments.forEach(appointment => {
 });
 
 export async function GET(request: NextRequest) {
-  const session = await getSession();
+  const session = await getSession(request);
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -265,15 +120,37 @@ export async function GET(request: NextRequest) {
   // Sort by start time
   allAppointments.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime());
 
+  // Transform appointments to match frontend interface
+  const transformedAppointments = allAppointments.map(apt => {
+    const startDate = new Date(apt.startTime);
+    const endDate = new Date(apt.endTime);
+    const durationMs = endDate.getTime() - startDate.getTime();
+    const durationHours = Math.round(durationMs / (1000 * 60 * 60) * 10) / 10;
+    
+    return {
+      id: apt.id,
+      educatorName: apt.educatorName,
+      title: apt.title,
+      date: startDate.toISOString().split('T')[0], // YYYY-MM-DD format
+      time: `${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`,
+      duration: durationHours === 1 ? '1 hour' : `${durationHours} hours`,
+      status: apt.status,
+      source: 'moonriver',
+      description: apt.description,
+      location: apt.location,
+      googleEventId: apt.googleEventId
+    };
+  });
+
   return NextResponse.json({
     success: true,
-    appointments: allAppointments,
-    total: allAppointments.length
+    appointments: transformedAppointments,
+    total: transformedAppointments.length
   });
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
+  const session = await getSession(request);
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -294,33 +171,43 @@ export async function POST(request: NextRequest) {
 
     const {
       educatorId,
-      educatorName,
-      studentId,
-      studentName,
-      studentEmail,
       title,
-      description,
-      startTime,
-      endTime,
-      type = 'lesson',
-      location,
-      notes
+      date,
+      time,
+      notes,
+      type = 'lesson'
     } = data;
 
     // Validate required fields
-    if (!educatorId || !studentId || !title || !startTime || !endTime) {
+    if (!educatorId || !title || !date || !time) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Map educator ID to name
+    const educatorMap: { [key: string]: string } = {
+      'john-williams': 'John Williams',
+      'adele-adkins': 'Adele Adkins',
+      'steve-vai': 'Steve Vai',
+      'taylor-swift': 'Taylor Swift'
+    };
+
+    const educatorName = educatorMap[educatorId] || educatorId;
+    
+    // Convert date and time to startTime and endTime
+    const startTime = new Date(`${date}T${time}:00`).toISOString();
+    const endTime = new Date(`${date}T${time}:00`);
+    endTime.setHours(endTime.getHours() + 1); // Default 1 hour duration
+    const endTimeISO = endTime.toISOString();
+
     // Check for time conflicts
     const start = new Date(startTime);
-    const end = new Date(endTime);
+    const end = new Date(endTimeISO);
     
     const conflictingAppointments = Array.from(appointments.values()).filter(apt => {
       const aptStart = new Date(apt.startTime);
       const aptEnd = new Date(apt.endTime);
       return (
-        (apt.educatorId === educatorId || apt.studentId === studentId) &&
+        (apt.educatorId === educatorId || apt.studentId === userId) &&
         apt.status !== 'cancelled' &&
         ((start >= aptStart && start < aptEnd) || (end > aptStart && end <= aptEnd) || (start <= aptStart && end >= aptEnd))
       );
@@ -335,48 +222,22 @@ export async function POST(request: NextRequest) {
       id: appointmentIdCounter++,
       educatorId,
       educatorName,
-      studentId,
-      studentName,
-      studentEmail,
+      studentId: userId,
+      studentName: user?.name || 'Student',
+      studentEmail: userEmail,
       title,
-      description,
+      description: notes || '',
       startTime,
-      endTime,
+      endTime: endTimeISO,
       status: 'pending',
       type,
-      location: location || 'TBD',
+      location: 'TBD',
       notes: notes || '',
       createdAt: new Date().toISOString(),
       googleEventId: null // Will be set if Google Calendar sync succeeds
     };
 
-    // Try to sync with Google Calendar if educator has a token
-    try {
-      const vault = TokenVault.getInstance();
-      const googleToken = vault.getToken(educatorId, 'google-calendar');
-      if (googleToken) {
-        // Use secure API call through Token Vault
-        const googleEvent = GoogleCalendarService.formatEventForGoogle(newAppointment);
-        const response = await fetch('/api/ai-tools', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            toolName: 'google-calendar',
-            action: 'createEvent',
-            params: googleEvent
-          })
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          newAppointment.googleEventId = result.result.id;
-          console.log('Successfully synced appointment with Google Calendar:', result.result.id);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to sync with Google Calendar:', error);
-      // Continue with appointment creation even if Google Calendar sync fails
-    }
+    // Note: Google Calendar sync can be implemented later if needed
 
     appointments.set(newAppointment.id.toString(), newAppointment);
 

@@ -105,9 +105,9 @@ export default function StudentCoursesPage() {
                 <span className="material-symbols-outlined">person</span>
                 <span>Instructors</span>
               </Link>
-              <Link className="flex items-center space-x-3 text-[#555555] hover:text-[#F28C4A] hover:bg-[#FFF0E6] px-4 py-2 rounded-lg transition-colors" href="/profile">
-                <span className="material-symbols-outlined">settings</span>
-                <span>Settings</span>
+              <Link className="flex items-center space-x-3 text-[#555555] hover:text-[#F28C4A] hover:bg-[#FFF0E6] px-4 py-2 rounded-lg transition-colors" href="/ai-assistant">
+                <span className="material-symbols-outlined">smart_toy</span>
+                <span>AI Assistant</span>
               </Link>
             </nav>
           </div>

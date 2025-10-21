@@ -219,7 +219,7 @@ export default function ProfilePage() {
                   </Link>
                   <Link className="flex items-center space-x-3 text-[#555555] hover:text-[#F28C4A] hover:bg-[#FFF0E6] px-4 py-2 rounded-lg transition-colors" href="/student/appointments">
                     <span className="material-symbols-outlined">calendar_month</span>
-                    <span>My Appointments</span>
+                    <span>Schedule</span>
                   </Link>
                   <Link className="flex items-center space-x-3 text-[#555555] hover:text-[#F28C4A] hover:bg-[#FFF0E6] px-4 py-2 rounded-lg transition-colors" href="/educators">
                     <span className="material-symbols-outlined">person</span>

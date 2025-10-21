@@ -396,7 +396,7 @@ export default function HomePage() {
                   </Link>
                   <Link className="flex items-center space-x-3 text-text-light/70 hover:text-dash-primary hover:bg-dash-secondary/20 px-4 py-2 rounded-lg transition-colors" href="/student/appointments">
                     <span className="material-symbols-outlined">calendar_month</span>
-                    <span>My Appointments</span>
+                    <span>Schedule</span>
                   </Link>
                   <Link className="flex items-center space-x-3 text-text-light/70 hover:text-dash-primary hover:bg-dash-secondary/20 px-4 py-2 rounded-lg transition-colors" href="/educators">
                     <span className="material-symbols-outlined">person</span>
