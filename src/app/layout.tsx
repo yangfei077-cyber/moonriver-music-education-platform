@@ -1,11 +1,15 @@
 import { UserProvider } from '@auth0/nextjs-auth0/client';
 import './globals.css';
-import { Inter } from 'next/font/google';
+import { Poppins } from 'next/font/google';
 
-const inter = Inter({ subsets: ['latin'] });
+const poppins = Poppins({ 
+  weight: ['400', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-poppins'
+});
 
 export const metadata = {
-  title: 'MoonRiver Platform - Auth0 AI Agents Challenge',
+  title: 'Moonriver Music - Auth0 AI Agents Challenge',
   description: 'Music education platform demonstrating Auth0 for AI Agents with secure authentication, token vault, and fine-grained authorization',
 };
 
@@ -16,7 +20,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <head>
+        <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
+      </head>
+      <body className={poppins.className} style={{ backgroundColor: '#FFFBEB' }}>
         <UserProvider>
           {children}
         </UserProvider>

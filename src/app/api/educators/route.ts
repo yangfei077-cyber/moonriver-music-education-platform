@@ -7,7 +7,7 @@ const messages: Map<string, any[]> = new Map();
 
 // Add demo messages for student@moonriver.com
 const DEMO_STUDENT_USER_ID = 'auth0|68f0970657a65f6a14ef94f0'; // student@moonriver.com
-const DEMO_EDUCATOR_ID = 'educator@moonriver.com'; // Dr. Sarah Johnson
+const DEMO_EDUCATOR_ID = 'auth0|68f0970657a65f6a14ef94f1'; // Dr. Sarah Johnson (simulated Auth0 sub)
 
 // Demo conversation between student and Dr. Sarah Johnson
 const demoMessages = [
@@ -47,6 +47,87 @@ const demoMessages = [
 ];
 
 messages.set(`${DEMO_STUDENT_USER_ID}:${DEMO_EDUCATOR_ID}`, demoMessages);
+
+// Add demo educator-to-student messages
+const educatorToStudentMessages = [
+  {
+    id: '4',
+    from: DEMO_EDUCATOR_ID,
+    fromName: 'Dr. Sarah Johnson',
+    to: DEMO_STUDENT_USER_ID,
+    toName: 'Demo Student',
+    subject: 'Welcome to Piano Fundamentals!',
+    message: 'Welcome to the Piano Fundamentals course! I\'m excited to be your instructor. Please feel free to reach out if you have any questions about the course material.',
+    timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+    read: true
+  },
+  {
+    id: '5',
+    from: DEMO_EDUCATOR_ID,
+    fromName: 'Dr. Sarah Johnson',
+    to: DEMO_STUDENT_USER_ID,
+    toName: 'Demo Student',
+    subject: 'Practice Schedule Reminder',
+    message: 'Hi! Just a friendly reminder that we have our weekly practice session tomorrow at 2 PM. Please prepare the scales we discussed last week.',
+    timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+    read: false
+  }
+];
+
+// Add these messages to the existing conversation
+const existingMessages = messages.get(`${DEMO_STUDENT_USER_ID}:${DEMO_EDUCATOR_ID}`) || [];
+messages.set(`${DEMO_STUDENT_USER_ID}:${DEMO_EDUCATOR_ID}`, [...existingMessages, ...educatorToStudentMessages]);
+
+// Add demo messages for educator@moonriver.com (real educator)
+// These will be visible when the actual educator logs in
+const REAL_EDUCATOR_EMAIL = 'educator@moonriver.com';
+const DEMO_STUDENT_ID = 'auth0|68f0970657a65f6a14ef94f0'; // student@moonriver.com
+
+// Create demo messages for the real educator
+const realEducatorMessages = [
+  {
+    id: 'demo1',
+    from: REAL_EDUCATOR_EMAIL,
+    fromName: 'Dr. Sarah Johnson',
+    to: DEMO_STUDENT_ID,
+    toName: 'Demo Student',
+    subject: 'Welcome to Piano Fundamentals!',
+    message: 'Welcome to the Piano Fundamentals course! I\'m excited to be your instructor. Please feel free to reach out if you have any questions about the course material.',
+    timestamp: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+    read: true
+  },
+  {
+    id: 'demo2',
+    from: DEMO_STUDENT_ID,
+    fromName: 'Demo Student',
+    to: REAL_EDUCATOR_EMAIL,
+    toName: 'Dr. Sarah Johnson',
+    subject: 'Question about scales',
+    message: 'Hi Dr. Johnson, I have a question about the major scales. Should I focus on C major first or practice all of them?',
+    timestamp: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days ago
+    read: true
+  },
+  {
+    id: 'demo3',
+    from: REAL_EDUCATOR_EMAIL,
+    fromName: 'Dr. Sarah Johnson',
+    to: DEMO_STUDENT_ID,
+    toName: 'Demo Student',
+    subject: 'Re: Question about scales',
+    message: 'Great question! I recommend starting with C major since it has no sharps or flats. Once you\'re comfortable with C major, we can move on to G major and D major.',
+    timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 1 day ago
+    read: false
+  }
+];
+
+// Store messages for the real educator (using email as educator ID for demo purposes)
+messages.set(`${DEMO_STUDENT_ID}:${REAL_EDUCATOR_EMAIL}`, realEducatorMessages);
+
+// Helper function to get consistent message key
+function getMessageKey(studentId: string, educatorId: string): string {
+  // Always use student:educator format for consistency
+  return `${studentId}:${educatorId}`;
+}
 
 // Initialize with sample educators
 const sampleEducators = [
@@ -218,11 +299,19 @@ export async function POST(request: NextRequest) {
   const user = session.user;
   const roles = user?.['https://moonriver.com/roles'] || [];
   const userId = user?.sub;
-  const { action, educatorId, message, subject } = await request.json();
+  const { action, educatorId, studentId, message, subject } = await request.json();
 
-  // Only students can send messages to educators
-  if (!roles.includes('student')) {
-    return NextResponse.json({ error: 'Only students can send messages' }, { status: 403 });
+  // Check if user is authorized for messaging actions
+  if (action === 'sendMessage') {
+    // Only students can send messages to educators
+    if (!roles.includes('student')) {
+      return NextResponse.json({ error: 'Only students can send messages' }, { status: 403 });
+    }
+  } else if (action === 'sendMessageToStudent') {
+    // Only educators can send messages to students
+    if (!roles.includes('educator')) {
+      return NextResponse.json({ error: 'Only educators can send messages to students' }, { status: 403 });
+    }
   }
 
   if (action === 'sendMessage') {
@@ -249,7 +338,8 @@ export async function POST(request: NextRequest) {
     };
 
     // Store message - append to existing conversation
-    const messageKey = `${userId}:${educatorId}`;
+    // Use consistent key format: always student:educator
+    const messageKey = getMessageKey(userId, educatorId);
     const existingMessages = messages.get(messageKey) || [];
     
     // Add new message to existing conversation
@@ -264,18 +354,73 @@ export async function POST(request: NextRequest) {
       message: 'Message sent successfully',
       messageId: newMessage.id
     });
+  } else if (action === 'sendMessageToStudent') {
+    if (!studentId || !message || !subject) {
+      return NextResponse.json({ error: 'Student ID, subject, and message are required' }, { status: 400 });
+    }
+
+    // Create message from educator to student
+    const newMessage = {
+      id: Date.now().toString(),
+      from: userId, // Educator's ID
+      fromName: user.name || user.email,
+      to: studentId,
+      toName: `Student ${studentId}`, // In production, you'd fetch the actual student name
+      subject,
+      message,
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+
+    // Store message - append to existing conversation
+    // Use consistent key format: always student:educator
+    // For demo purposes, use educator email as ID
+    const educatorId = user?.email || userId;
+    const messageKey = getMessageKey(studentId, educatorId);
+    const existingMessages = messages.get(messageKey) || [];
+    
+    // Add new message to existing conversation
+    existingMessages.push(newMessage);
+    messages.set(messageKey, existingMessages);
+    
+    console.log(`Message sent to student ${messageKey}:`, newMessage);
+    console.log(`Total messages for this conversation: ${existingMessages.length}`);
+    console.log('All messages in storage:', Array.from(messages.entries()));
+
+    return NextResponse.json({
+      success: true,
+      message: 'Message sent successfully',
+      messageId: newMessage.id
+    });
   }
 
   if (action === 'getMessages') {
-    if (!educatorId) {
-      return NextResponse.json({ error: 'Educator ID is required' }, { status: 400 });
+    if (!educatorId && !studentId) {
+      return NextResponse.json({ error: 'Educator ID or Student ID is required' }, { status: 400 });
     }
 
-    const messageKey = `${userId}:${educatorId}`;
+    let messageKey;
+    // Determine who is making the request based on roles and parameters
+    const userRoles = user?.['https://moonriver.com/roles'] || [];
+    const isEducator = userRoles.includes('educator');
+    
+    if (isEducator && studentId) {
+      // Educator getting messages with student
+      // For demo purposes, use educator email as ID
+      const educatorIdForKey = user?.email || userId;
+      messageKey = getMessageKey(studentId, educatorIdForKey);
+    } else if (educatorId) {
+      // Student getting messages with educator
+      messageKey = getMessageKey(userId, educatorId);
+    } else {
+      return NextResponse.json({ error: 'Invalid request parameters' }, { status: 400 });
+    }
     const userMessages = messages.get(messageKey) || [];
     
     console.log(`Retrieving messages for ${messageKey}:`, userMessages);
     console.log(`Total messages found: ${userMessages.length}`);
+    console.log('Request params:', { educatorId, studentId, userId });
+    console.log('All available message keys:', Array.from(messages.keys()));
 
     return NextResponse.json({
       success: true,

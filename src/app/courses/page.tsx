@@ -57,23 +57,28 @@ export default function CourseCatalogPage() {
   }, [user]);
 
   useEffect(() => {
-    // Debounce search to avoid too many API calls
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
-    }
-
-    const timeout = setTimeout(() => {
-      applyFilters();
-    }, 300); // 300ms debounce
-
-    setSearchTimeout(timeout);
-
-    return () => {
-      if (timeout) {
-        clearTimeout(timeout);
+    // Only debounce if we have courses loaded and search is not empty
+    if (allCourses.length > 0 && filters.search.trim()) {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
       }
-    };
-  }, [filters.search]);
+
+      const timeout = setTimeout(() => {
+        applyFilters();
+      }, 300); // 300ms debounce
+
+      setSearchTimeout(timeout);
+
+      return () => {
+        if (timeout) {
+          clearTimeout(timeout);
+        }
+      };
+    } else if (allCourses.length > 0) {
+      // If no search term, apply filters immediately
+      applyFilters();
+    }
+  }, [filters.search, allCourses.length]);
 
   useEffect(() => {
     // Apply filters immediately for level and instructor changes
@@ -393,41 +398,6 @@ export default function CourseCatalogPage() {
                     </div>
                   </div>
 
-                  {/* Enrollment Button */}
-                  <div className="pt-4 border-t border-gray-200">
-                    {course.isEnrolled ? (
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center text-green-600">
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          <span className="text-sm font-medium">Enrolled</span>
-                        </div>
-                        <button
-                          onClick={() => unenrollFromCourse(course.id)}
-                          disabled={enrolling === course.id}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium disabled:opacity-50"
-                        >
-                          {enrolling === course.id ? 'Unenrolling...' : 'Unenroll'}
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => enrollInCourse(course.id)}
-                        disabled={!course.canEnroll || enrolling === course.id}
-                        className={`w-full py-2 px-4 rounded-md font-medium transition-colors ${
-                          course.canEnroll
-                            ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        } disabled:opacity-50`}
-                      >
-                        {enrolling === course.id 
-                          ? 'Enrolling...' 
-                          : course.canEnroll 
-                            ? 'Enroll Now' 
-                            : 'Course Full'
-                        }
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
             ))}
@@ -441,9 +411,6 @@ export default function CourseCatalogPage() {
               <p className="text-gray-600 mb-4">
                 Try adjusting your filters or check back later for new courses.
               </p>
-              <div className="text-sm text-gray-500 mb-6">
-                Debug: {allCourses.length} total courses, {courses.length} filtered courses
-              </div>
               <button
                 onClick={() => setFilters({ level: '', instructor: '', search: '' })}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md"

@@ -8,6 +8,12 @@ export default handleAuth({
       // audience: process.env.AUTH0_AUDIENCE,
     },
   }),
+  register: handleLogin({
+    authorizationParams: {
+      scope: 'openid profile email',
+      screen_hint: 'signup', // This tells Auth0 to show the signup form
+    },
+  }),
   logout: handleLogout({
     returnTo: process.env.AUTH0_BASE_URL,
   }),

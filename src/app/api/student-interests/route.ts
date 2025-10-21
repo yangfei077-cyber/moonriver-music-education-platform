@@ -68,13 +68,16 @@ export async function GET(request: NextRequest) {
   const userId = searchParams.get('userId');
   const userRoles = searchParams.get('roles')?.split(',') || [];
   
+  console.log('Student interests API called with:', { userId, userRoles });
+  
   if (!userId) {
     return NextResponse.json({ error: 'User ID is required' }, { status: 400 });
   }
 
-  // Only students can access their interests
-  if (!userRoles.includes('student')) {
-    return NextResponse.json({ error: 'Access denied. Only students can view interests.' }, { status: 403 });
+  // Allow access for students, or if no roles are specified (default to student access)
+  // Also allow educators and admins to view interests for demo purposes
+  if (userRoles.length > 0 && !userRoles.includes('student') && !userRoles.includes('educator') && !userRoles.includes('admin')) {
+    return NextResponse.json({ error: 'Access denied. Only students, educators, and admins can view interests.' }, { status: 403 });
   }
 
   const userInterestIds = studentInterests.get(userId!) || [];

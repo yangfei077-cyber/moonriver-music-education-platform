@@ -87,20 +87,36 @@ const KNOWLEDGE_BASE = {
   
   // Educator-specific knowledge
   educator: {
-    recommendations: [
-      "Recommend students to practice 30 minutes daily for optimal progress",
-      "Encourage students to record their practice sessions for self-assessment",
-      "Suggest students attend live music events to develop musical appreciation",
-      "Recommend using metronomes for rhythm training",
-      "Advise students to join music communities for peer learning"
+    studentRecommendations: [
+      "Analyze student interests to suggest relevant course materials and practice pieces",
+      "Recommend students to explore different genres within their interest areas",
+      "Suggest students connect with peers who share similar musical interests",
+      "Guide students toward appropriate skill level materials based on their progress",
+      "Encourage students to attend concerts and performances in their preferred genres",
+      "Recommend supplementary learning resources like apps, books, or online tutorials",
+      "Suggest students join music communities related to their interests",
+      "Help students set realistic goals based on their interests and skill level"
     ],
-    appointments: [
-      "Schedule regular check-ins every 2 weeks to track progress",
-      "Offer makeup sessions for missed classes within 48 hours",
-      "Provide written feedback after each lesson",
-      "Schedule recital preparation sessions 4 weeks before events",
-      "Offer extra practice sessions for struggling students"
-    ]
+    schedulingTips: [
+      "Schedule lessons during student's peak energy hours for better focus and retention",
+      "Allow buffer time between lessons for preparation and note-taking",
+      "Consider student's other commitments when scheduling regular sessions",
+      "Plan longer sessions for complex topics or performance preparation",
+      "Schedule makeup lessons within 48 hours to maintain learning momentum",
+      "Use calendar reminders to help students remember their lesson times",
+      "Offer flexible scheduling options for students with irregular schedules",
+      "Plan recital and performance preparation sessions well in advance"
+    ],
+    appointmentManagement: [
+      "Send appointment confirmations 24 hours before scheduled lessons",
+      "Provide clear instructions for virtual lessons including platform links and requirements",
+      "Create lesson agendas and share them with students beforehand",
+      "Allow 10-15 minutes between lessons for preparation and student transitions",
+      "Maintain a waiting list for popular time slots to fill cancellations quickly",
+      "Track student attendance patterns to optimize scheduling",
+      "Offer group sessions for students with similar skill levels and interests",
+      "Schedule regular progress review sessions every 4-6 weeks"
+    ],
   },
   
   // Student-specific knowledge
@@ -271,6 +287,51 @@ function generatePersonalizedRecommendations(userInterests: string[], knowledge:
   return recommendations.join('\n');
 }
 
+// Generate educator-specific recommendations based on their students
+function generateEducatorRecommendations(userStudents: any[], knowledge: any): string {
+  if (!userStudents || userStudents.length === 0) {
+    return '';
+  }
+
+  const recommendations: string[] = [];
+  
+  // Analyze student interests and provide recommendations
+  const allInterests = userStudents.flatMap(student => student.interests || []);
+  const interestCounts: { [key: string]: number } = {};
+  
+  allInterests.forEach(interest => {
+    interestCounts[interest] = (interestCounts[interest] || 0) + 1;
+  });
+
+  const topInterests = Object.entries(interestCounts)
+    .sort(([,a], [,b]) => b - a)
+    .slice(0, 3)
+    .map(([interest]) => interest);
+
+  if (topInterests.length > 0) {
+    recommendations.push(`📊 **Student Interest Analysis**: Your students are most interested in ${topInterests.join(', ')}. Consider incorporating these genres into your lesson plans.`);
+  }
+
+  // Provide messaging recommendations for specific students
+  const strugglingStudents = userStudents.filter(student => 
+    parseInt(student.progress) < 60
+  );
+  
+  if (strugglingStudents.length > 0) {
+    const studentNames = strugglingStudents.map(s => s.name).join(', ');
+    recommendations.push(`⚠️ **Students Needing Attention**: ${studentNames} may benefit from additional support. Consider reaching out with encouragement and practice tips.`);
+  }
+
+  // Add scheduling tip
+  const schedulingTips = knowledge.educator?.schedulingTips || [];
+  if (schedulingTips.length > 0) {
+    const randomSchedulingTip = schedulingTips[Math.floor(Math.random() * schedulingTips.length)];
+    recommendations.push(`📅 **Scheduling Tip**: ${randomSchedulingTip}`);
+  }
+
+  return recommendations.join('\n\n');
+}
+
 // Simple RAG implementation - find relevant context
 function findRelevantContext(query: string, knowledge: any, userInterests?: string[]): string {
   const queryLower = query.toLowerCase();
@@ -311,7 +372,7 @@ export async function POST(request: NextRequest) {
   try {
     // For demo purposes, we'll accept requests without strict auth
     // In production, implement proper JWT verification
-    const { message, userRoles, userInfo, userInterests } = await request.json();
+    const { message, userRoles, userInfo, userInterests, userStudents } = await request.json();
     
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -339,7 +400,15 @@ Is there anything else I can help you with regarding your own learning journey?`
     const knowledge = getRoleBasedKnowledge(roles);
     
     // Find relevant context using simple RAG
-    const relevantContext = findRelevantContext(message, knowledge, userInterests);
+    let relevantContext = findRelevantContext(message, knowledge, userInterests);
+    
+    // Add educator-specific recommendations if user is an educator
+    if (roles.includes('educator') && userStudents) {
+      const educatorRecs = generateEducatorRecommendations(userStudents, knowledge);
+      if (educatorRecs) {
+        relevantContext += '\n\n' + educatorRecs;
+      }
+    }
     
     // Prepare system prompt based on user role
     let systemPrompt = `You are an AI assistant for MoonRiver Music Education Platform. You help users with music education questions and recommendations.
@@ -354,6 +423,8 @@ USER INFORMATION:
 - Email: ${userInfo?.email || 'user@example.com'}
 - Roles: ${roles.join(', ')}
 - Music Interests: ${userInterests ? userInterests.join(', ') : 'Not specified'}
+${roles.includes('educator') && userStudents ? `- Active Students: ${userStudents.length} students` : ''}
+${roles.includes('educator') && userStudents ? `- Student Interests: ${userStudents.flatMap((s: any) => s.interests || []).join(', ')}` : ''}
 
 Available knowledge:
 ${JSON.stringify(knowledge, null, 2)}

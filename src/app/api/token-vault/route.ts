@@ -2,10 +2,11 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-// Token Vault Implementation
+// Token Vault Implementation - Pillar 2: "Control the Tools"
 class TokenVault {
   private static instance: TokenVault;
   private tokens: Map<string, any> = new Map();
+  private usageLog: Map<string, any[]> = new Map();
 
   static getInstance(): TokenVault {
     if (!TokenVault.instance) {
@@ -83,6 +84,105 @@ class TokenVault {
     const key = `${userId}:${tokenName}`;
     return this.tokens.delete(key);
   }
+
+  // AI Actions System - Secure Tool Execution
+  async executeSecureTool(userId: string, toolName: string, params: any, requiredScopes: string[] = []): Promise<any> {
+    const tokenKey = `${userId}:${toolName}`;
+    const tokenData = this.tokens.get(tokenKey);
+    
+    if (!tokenData) {
+      throw new Error(`No token found for tool: ${toolName}`);
+    }
+
+    // Log tool usage for audit
+    this.logToolUsage(userId, toolName, params, requiredScopes);
+
+    // Decrypt and return token for secure API calls
+    const decryptedToken = this.decryptToken(tokenData.encryptedToken);
+    
+    // Update last used timestamp
+    tokenData.lastUsed = new Date().toISOString();
+    this.tokens.set(tokenKey, tokenData);
+
+    return {
+      token: decryptedToken,
+      scopes: requiredScopes,
+      usageId: this.generateUsageId(),
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  // Secure API call wrapper
+  async makeSecureAPICall(userId: string, toolName: string, url: string, options: any = {}, requiredScopes: string[] = []): Promise<any> {
+    const tokenInfo = await this.executeSecureTool(userId, toolName, { url, ...options }, requiredScopes);
+    
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': `Bearer ${tokenInfo.token}`,
+        'X-Token-Vault-Usage-ID': tokenInfo.usageId,
+        'X-Token-Vault-Timestamp': tokenInfo.timestamp
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`API call failed: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  // Usage logging and audit trail
+  private logToolUsage(userId: string, toolName: string, params: any, scopes: string[]): void {
+    const logEntry = {
+      userId,
+      toolName,
+      params: this.sanitizeParams(params),
+      scopes,
+      timestamp: new Date().toISOString(),
+      usageId: this.generateUsageId()
+    };
+
+    const userLogs = this.usageLog.get(userId) || [];
+    userLogs.push(logEntry);
+    
+    // Keep only last 100 entries per user
+    if (userLogs.length > 100) {
+      userLogs.splice(0, userLogs.length - 100);
+    }
+    
+    this.usageLog.set(userId, userLogs);
+  }
+
+  private sanitizeParams(params: any): any {
+    // Remove sensitive data from logs
+    const sanitized = { ...params };
+    delete sanitized.password;
+    delete sanitized.token;
+    delete sanitized.secret;
+    return sanitized;
+  }
+
+  private generateUsageId(): string {
+    return `usage_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Get usage analytics
+  getUsageAnalytics(userId: string): any {
+    const userLogs = this.usageLog.get(userId) || [];
+    const toolUsage = userLogs.reduce((acc, log) => {
+      acc[log.toolName] = (acc[log.toolName] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      totalUsage: userLogs.length,
+      toolUsage,
+      recentUsage: userLogs.slice(-10),
+      lastUsed: userLogs[userLogs.length - 1]?.timestamp
+    };
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -94,8 +194,15 @@ export async function GET(request: NextRequest) {
 
   const userId = session.user?.sub;
   const vault = TokenVault.getInstance();
-  const tokens = vault.listTokens(userId!);
+  const url = new URL(request.url);
+  const action = url.searchParams.get('action');
 
+  if (action === 'analytics') {
+    const analytics = vault.getUsageAnalytics(userId!);
+    return NextResponse.json({ analytics });
+  }
+
+  const tokens = vault.listTokens(userId!);
   return NextResponse.json({ tokens });
 }
 
@@ -106,9 +213,47 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { tokenName, token } = await request.json();
+  const body = await request.json();
   const userId = session.user?.sub;
   const vault = TokenVault.getInstance();
+
+  // Handle secure tool execution
+  if (body.action === 'executeTool') {
+    try {
+      const { toolName, params, scopes, url, options } = body;
+      
+      if (url) {
+        // Make secure API call
+        const result = await vault.makeSecureAPICall(userId!, toolName, url, options, scopes);
+        return NextResponse.json({ 
+          success: true, 
+          result,
+          message: 'Secure API call executed successfully' 
+        });
+      } else {
+        // Execute secure tool
+        const tokenInfo = await vault.executeSecureTool(userId!, toolName, params, scopes);
+        return NextResponse.json({ 
+          success: true, 
+          tokenInfo,
+          message: 'Secure tool executed successfully' 
+        });
+      }
+    } catch (error: any) {
+      return NextResponse.json({ 
+        success: false, 
+        error: error.message,
+        message: 'Tool execution failed' 
+      }, { status: 400 });
+    }
+  }
+
+  // Handle token storage
+  const { tokenName, token } = body;
+  
+  if (!tokenName || !token) {
+    return NextResponse.json({ error: 'Token name and value are required' }, { status: 400 });
+  }
   
   vault.storeToken(userId!, tokenName, token);
 

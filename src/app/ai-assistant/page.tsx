@@ -49,8 +49,6 @@ export default function AIAssistant() {
 
 🎵 **Course Information** - Learn about available courses and instructors
 👨‍🏫 **Educator Recommendations** - Find the perfect teacher for your needs
-📚 **Learning Guidance** - Get personalized study recommendations
-🎹 **Music Theory** - Understand concepts and techniques
 📅 **Scheduling** - Information about classes and appointments
 
 I can also provide personalized recommendations based on your music interests! 
@@ -215,9 +213,9 @@ What would you like to know about music education at MoonRiver?`,
             </div>
           </div>
 
-          <div className="grid lg:grid-cols-4 gap-6">
+          <div className="grid lg:grid-cols-3 gap-6">
             {/* Chat Interface */}
-            <div className="lg:col-span-3">
+            <div className="lg:col-span-2">
               <div className="bg-white rounded-lg shadow-md h-[600px] flex flex-col">
                 {/* Chat Messages */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -291,10 +289,9 @@ What would you like to know about music education at MoonRiver?`,
               </div>
             </div>
 
-            {/* Sidebar */}
-            <div className="lg:col-span-1 space-y-6">
-              {/* Quick Prompts */}
-              <div className="bg-white rounded-lg shadow-md p-6">
+            {/* Quick Prompts Sidebar */}
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-lg shadow-md p-6 h-[600px] overflow-y-auto">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <MessageSquare className="w-5 h-5 mr-2 text-purple-600" />
                   Quick Prompts
@@ -304,64 +301,11 @@ What would you like to know about music education at MoonRiver?`,
                     <button
                       key={index}
                       onClick={() => setInputMessage(prompt)}
-                      className="w-full text-left text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 p-2 rounded-md transition-colors"
+                      className="w-full text-left text-sm text-gray-600 hover:text-purple-600 hover:bg-purple-50 p-3 rounded-md transition-colors"
                     >
                       {prompt}
                     </button>
                   ))}
-                </div>
-              </div>
-
-              {/* Knowledge Base Info */}
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <BookOpen className="w-5 h-5 mr-2 text-purple-600" />
-                  Knowledge Base
-                </h3>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center">
-                    <Users className="w-4 h-4 mr-2 text-blue-500" />
-                    <span>Course & Educator Info</span>
-                  </div>
-                  <div className="flex items-center">
-                    <User className="w-4 h-4 mr-2 text-green-500" />
-                    <span>Personalized Recommendations</span>
-                  </div>
-                  <div className="flex items-center">
-                    <Settings className="w-4 h-4 mr-2 text-purple-500" />
-                    <span>Role-based Access</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* User Info */}
-              <div className="bg-white rounded-lg shadow-md p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Your Profile</h3>
-                <div className="space-y-2 text-sm">
-                  <div>
-                    <span className="font-medium">Name:</span> {user.name || user.email}
-                  </div>
-                  <div>
-                    <span className="font-medium">Roles:</span> {(user as any)?.['https://moonriver.com/roles']?.join(', ') || 'Student'}
-                  </div>
-                  <div>
-                    <span className="font-medium">AI Model:</span> DeepHermes 3
-                  </div>
-                  {userInterests.length > 0 && (
-                    <div>
-                      <span className="font-medium">Music Interests:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {userInterests.map((interest, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 text-purple-800"
-                          >
-                            {interest}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
