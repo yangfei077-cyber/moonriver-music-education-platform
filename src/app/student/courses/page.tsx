@@ -112,7 +112,10 @@ export default function StudentCoursesPage() {
             </nav>
           </div>
           <div>
-            <button className="flex items-center space-x-3 text-[#555555] hover:text-[#F28C4A] hover:bg-[#FFF0E6] px-4 py-2 rounded-lg transition-colors w-full">
+            <button 
+              onClick={() => window.location.href = '/api/auth/logout'}
+              className="flex items-center space-x-3 text-[#555555] hover:text-[#F28C4A] hover:bg-[#FFF0E6] px-4 py-2 rounded-lg transition-colors w-full"
+            >
               <span className="material-symbols-outlined">logout</span>
               <span>Logout</span>
             </button>
