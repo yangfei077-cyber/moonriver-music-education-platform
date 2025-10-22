@@ -414,7 +414,7 @@ export default function HomePage() {
                     <span className="material-symbols-outlined">music_note</span>
                     <span>My Courses</span>
                   </Link>
-                  <Link className="flex items-center space-x-3 text-text-light/70 hover:text-dash-primary hover:bg-dash-secondary/20 px-4 py-2 rounded-lg transition-colors" href="/educator/schedule">
+                  <Link className="flex items-center space-x-3 text-text-light/70 hover:text-dash-primary hover:bg-dash-secondary/20 px-4 py-2 rounded-lg transition-colors" href="/appointments">
                     <span className="material-symbols-outlined">calendar_month</span>
                     <span>My Schedule</span>
                   </Link>

@@ -27,6 +27,9 @@ export default function StudentAppointmentsPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [notification, setNotification] = useState<{type: 'success' | 'error', message: string} | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [newAppointment, setNewAppointment] = useState({
     title: '',
     date: '',
@@ -34,6 +37,12 @@ export default function StudentAppointmentsPage() {
     educatorId: '',
     notes: ''
   });
+  const [rescheduleData, setRescheduleData] = useState({
+    newDate: '',
+    newTime: '',
+    notes: ''
+  });
+  const [cancelReason, setCancelReason] = useState('');
 
   // Fetch appointments on component mount
   useEffect(() => {
@@ -180,6 +189,113 @@ export default function StudentAppointmentsPage() {
       setNotification({
         type: 'error',
         message: 'Error creating appointment. Please try again.'
+      });
+    }
+  };
+
+  const handleRescheduleClick = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setShowRescheduleModal(true);
+    // Pre-fill current date and time
+    setRescheduleData({
+      newDate: appointment.date,
+      newTime: appointment.time.split(' - ')[0].replace(/\s(AM|PM)/, ''),
+      notes: ''
+    });
+  };
+
+  const handleCancelClick = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setShowCancelModal(true);
+    setCancelReason('');
+  };
+
+  const handleReschedule = async () => {
+    if (!selectedAppointment || !rescheduleData.newDate || !rescheduleData.newTime) {
+      setNotification({
+        type: 'error',
+        message: 'Please select both date and time'
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'reschedule',
+          appointmentId: selectedAppointment.id,
+          newDate: rescheduleData.newDate,
+          newTime: rescheduleData.newTime,
+          notes: rescheduleData.notes
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setNotification({
+          type: 'success',
+          message: 'Appointment rescheduled successfully!'
+        });
+        setShowRescheduleModal(false);
+        setRescheduleData({ newDate: '', newTime: '', notes: '' });
+        fetchAppointments(); // Refresh the list
+      } else {
+        setNotification({
+          type: 'error',
+          message: result.error || 'Failed to reschedule appointment'
+        });
+      }
+    } catch (error) {
+      console.error('Error rescheduling appointment:', error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to reschedule appointment'
+      });
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!selectedAppointment) return;
+
+    try {
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'cancel',
+          appointmentId: selectedAppointment.id,
+          reason: cancelReason || 'No reason provided'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setNotification({
+          type: 'success',
+          message: 'Appointment cancelled successfully!'
+        });
+        setShowCancelModal(false);
+        setCancelReason('');
+        fetchAppointments(); // Refresh the list
+      } else {
+        setNotification({
+          type: 'error',
+          message: result.error || 'Failed to cancel appointment'
+        });
+      }
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to cancel appointment'
       });
     }
   };
@@ -438,8 +554,18 @@ export default function StudentAppointmentsPage() {
                     <p className="text-sm text-[#666666]">with {appointment.educatorName}</p>
                     {appointment.source === 'moonriver' && (
                       <div className="flex space-x-2 mt-2">
-                        <button className="text-red-600 text-xs hover:underline">Reschedule</button>
-                        <button className="text-red-600 text-xs hover:underline">Cancel</button>
+                        <button 
+                          onClick={() => handleRescheduleClick(appointment)}
+                          className="text-red-600 text-xs hover:underline"
+                        >
+                          Reschedule
+                        </button>
+                        <button 
+                          onClick={() => handleCancelClick(appointment)}
+                          className="text-red-600 text-xs hover:underline"
+                        >
+                          Cancel
+                        </button>
                       </div>
                     )}
                     {appointment.source === 'google_calendar' && (
@@ -585,6 +711,129 @@ export default function StudentAppointmentsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && selectedAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold font-display text-[#333333]">Reschedule Lesson</h2>
+              <button 
+                onClick={() => setShowRescheduleModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">
+                  New Date
+                </label>
+                <input
+                  type="date"
+                  value={rescheduleData.newDate}
+                  onChange={(e) => setRescheduleData({ ...rescheduleData, newDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F28C4A]"
+                  min={new Date().toISOString().split('T')[0]}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">
+                  New Time
+                </label>
+                <input
+                  type="time"
+                  value={rescheduleData.newTime}
+                  onChange={(e) => setRescheduleData({ ...rescheduleData, newTime: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F28C4A]"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#333333] mb-1">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={rescheduleData.notes}
+                  onChange={(e) => setRescheduleData({ ...rescheduleData, notes: e.target.value })}
+                  placeholder="Reason for rescheduling..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F28C4A]"
+                  rows={3}
+                />
+              </div>
+            </div>
+
+            <div className="flex space-x-3 pt-4">
+              <button
+                onClick={() => setShowRescheduleModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReschedule}
+                className="flex-1 px-4 py-2 bg-[#F28C4A] text-white rounded-lg hover:bg-[#E76F51] transition-colors"
+              >
+                Reschedule
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel Modal */}
+      {showCancelModal && selectedAppointment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold font-display text-[#333333]">Cancel Lesson</h2>
+              <button 
+                onClick={() => setShowCancelModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to cancel this lesson? This action cannot be undone.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-[#333333] mb-1">
+                Reason for cancellation (Optional)
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Please provide a reason..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F28C4A]"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Keep Lesson
+              </button>
+              <button
+                onClick={handleCancel}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Cancel Lesson
+              </button>
+            </div>
           </div>
         </div>
       )}
