@@ -6,35 +6,41 @@ export class TokenVault {
   private tokens: Map<string, any> = new Map();
 
   static getInstance(): TokenVault {
-    if (!TokenVault.instance) {
-      TokenVault.instance = new TokenVault();
+    // Persist singleton on globalThis so separate route modules in dev/serverless
+    // share the same in-memory vault within the same runtime
+    const g = globalThis as unknown as { __tokenVaultInstance?: TokenVault };
+    if (!g.__tokenVaultInstance) {
+      g.__tokenVaultInstance = new TokenVault();
     }
-    return TokenVault.instance;
+    return g.__tokenVaultInstance;
   }
 
   encryptToken(token: string): string {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
-    
-    let encrypted = cipher.update(token, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    return iv.toString('hex') + ':' + encrypted;
+    const iv = crypto.randomBytes(12); // 96-bit IV recommended for GCM
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+
+    const encryptedBuffer = Buffer.concat([cipher.update(token, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+
+    // Store as ivHex:tagHex:cipherHex
+    return [iv.toString('hex'), authTag.toString('hex'), encryptedBuffer.toString('hex')].join(':');
   }
 
   decryptToken(encryptedToken: string): string {
     const algorithm = 'aes-256-gcm';
     const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
-    const [ivHex, encrypted] = encryptedToken.split(':');
+    const [ivHex, tagHex, cipherHex] = encryptedToken.split(':');
     const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipher(algorithm, key);
-    
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
+    const authTag = Buffer.from(tagHex, 'hex');
+    const ciphertext = Buffer.from(cipherHex, 'hex');
+
+    const decipher = crypto.createDecipheriv(algorithm, key, iv);
+    decipher.setAuthTag(authTag);
+
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return decrypted.toString('utf8');
   }
 
   storeToken(userId: string, tokenName: string, token: string): void {

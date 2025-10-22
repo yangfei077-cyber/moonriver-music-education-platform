@@ -68,6 +68,10 @@ export default function StudentAppointmentsPage() {
       if (error === 'oauth_error') errorMessage = 'Failed to connect to Google Calendar';
       if (error === 'missing_params') errorMessage = 'Invalid connection parameters';
       if (error === 'callback_error') errorMessage = 'Connection callback failed';
+      if (error === 'token_storage_failed') errorMessage = 'Failed to store Google Calendar tokens';
+      if (error === 'config_error') errorMessage = 'Google Calendar integration not configured';
+      if (error === 'token_error') errorMessage = 'Failed to exchange authorization code';
+      if (error === 'code_expired') errorMessage = 'Authorization code expired, please try again';
       
       setNotification({ type: 'error', message: errorMessage });
       // Clean up URL
