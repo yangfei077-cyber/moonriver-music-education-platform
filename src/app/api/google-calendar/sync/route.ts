@@ -187,15 +187,19 @@ export async function POST(request: NextRequest) {
       }
 
       // Create or update the event in Google Calendar
+      // Convert local time to ISO string with timezone
+      const startDate = new Date(appointment.startTime);
+      const endDate = new Date(appointment.endTime);
+      
       const googleEvent = {
         summary: `${appointment.title} - ${appointment.educatorName}`,
         description: appointment.description || `Lesson with ${appointment.educatorName}`,
         start: {
-          dateTime: appointment.startTime,
+          dateTime: startDate.toISOString(),
           timeZone: 'UTC'
         },
         end: {
-          dateTime: appointment.endTime,
+          dateTime: endDate.toISOString(),
           timeZone: 'UTC'
         },
         location: appointment.location || 'TBD'

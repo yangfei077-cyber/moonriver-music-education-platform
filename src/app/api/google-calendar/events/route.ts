@@ -2,7 +2,7 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
-  const session = await getSession(request);
+  const session = await getSession();
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
 
   const user = session.user;
   const userId = user?.sub;
+  const userEmail = user?.email;
 
   try {
     // Get real Google Calendar token from storage
@@ -92,72 +93,74 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Upload each Moonriver appointment to Google Calendar
+    // 1. UPLOAD: Upload Moonriver appointments to Google Calendar
     for (const appointment of moonriverAppointments) {
+      // Skip appointments that are already synced to Google Calendar
+      if (appointment.googleEventId) {
+        console.log('Skipping appointment', appointment.id, '- already synced to Google Calendar with ID:', appointment.googleEventId);
+        continue;
+      }
+      
+      console.log('Processing appointment:', appointment.id, 'startTime:', appointment.startTime, 'endTime:', appointment.endTime);
+      
+      // Convert local time to ISO string with timezone
+      const startDate = new Date(appointment.startTime);
+      const endDate = new Date(appointment.endTime);
+      
       const googleEvent = {
         summary: `${appointment.title} - ${appointment.educatorName}`,
         description: appointment.description || `Lesson with ${appointment.educatorName}`,
         start: {
-          dateTime: appointment.startTime,
+          dateTime: startDate.toISOString(),
           timeZone: 'UTC'
         },
         end: {
-          dateTime: appointment.endTime,
+          dateTime: endDate.toISOString(),
           timeZone: 'UTC'
         },
         location: appointment.location || 'TBD',
-        extendedProperties: {
-          private: {
-            moonriver: 'true',
-            moonriverAppointmentId: appointment.id.toString()
-          }
-        }
+       extendedProperties: {
+         private: {
+           moonriver: 'true'
+         }
+       }
       };
 
+      console.log('Google Event data being sent:', JSON.stringify(googleEvent, null, 2));
+
       try {
-        let googleEventId = appointment.googleEventId;
+        // Create new event (since we already filtered out existing ones)
+        console.log('Creating new event for appointment', appointment.id);
+        const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(googleEvent),
+        });
+
+        console.log('Create response status:', createResponse.status);
         
-        if (googleEventId) {
-          // Update existing event
-          const updateResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${googleEventId}`, {
-            method: 'PUT',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(googleEvent),
-          });
+        if (!createResponse.ok) {
+          const errorText = await createResponse.text();
+          console.log('Create response error:', errorText);
+        }
 
-          if (updateResponse.ok) {
-            console.log(`Updated Google Calendar event for appointment ${appointment.id}`);
-            uploadedCount++;
+        if (createResponse.ok) {
+          const createdEvent = await createResponse.json();
+          const googleEventId = createdEvent.id;
+          
+          // Update appointment with Google Event ID
+          const appointmentsData = JSON.parse(fs.readFileSync(appointmentsFile, 'utf8'));
+          const appointmentIndex = appointmentsData.appointments.findIndex((apt: any) => apt.id === appointment.id);
+          if (appointmentIndex !== -1) {
+            appointmentsData.appointments[appointmentIndex].googleEventId = googleEventId;
+            fs.writeFileSync(appointmentsFile, JSON.stringify(appointmentsData, null, 2));
           }
-        } else {
-          // Create new event
-          const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(googleEvent),
-          });
-
-          if (createResponse.ok) {
-            const createdEvent = await createResponse.json();
-            googleEventId = createdEvent.id;
-            
-            // Update appointment with Google Event ID
-            const appointmentsData = JSON.parse(fs.readFileSync(appointmentsFile, 'utf8'));
-            const appointmentIndex = appointmentsData.appointments.findIndex((apt: any) => apt.id === appointment.id);
-            if (appointmentIndex !== -1) {
-              appointmentsData.appointments[appointmentIndex].googleEventId = googleEventId;
-              fs.writeFileSync(appointmentsFile, JSON.stringify(appointmentsData, null, 2));
-            }
-            
-            console.log(`Created Google Calendar event for appointment ${appointment.id}`);
-            uploadedCount++;
-          }
+          
+          console.log(`Created Google Calendar event for appointment ${appointment.id}`);
+          uploadedCount++;
         }
 
       } catch (error) {
@@ -189,22 +192,22 @@ export async function GET(request: NextRequest) {
              event.extendedProperties?.private?.moonriver === 'true';
     }) || [];
 
-    // Transform Google Calendar events to Moonriver appointment format
-    const appointments = moonriverEvents.map((event: any) => ({
-      id: event.id,
-      title: event.summary || 'Untitled Event',
-      date: event.start?.dateTime ? 
-        event.start.dateTime.split('T')[0] : 
-        event.start?.date || new Date().toISOString().split('T')[0],
-      time: event.start?.dateTime ? 
-        event.start.dateTime.split('T')[1].split('+')[0].substring(0, 5) : 
-        '00:00',
-      educatorName: event.attendees?.find((a: any) => a.email !== user?.email)?.displayName || 'Unknown Educator',
-      description: event.description || '',
-      location: event.location || '',
-      googleEventId: event.id,
-      source: 'google_calendar'
-    }));
+   // Transform Google Calendar events to Moonriver appointment format
+   const appointments = moonriverEvents.map((event: any) => ({
+     id: event.id,
+     title: event.summary || 'Untitled Event',
+     date: event.start?.dateTime ? 
+       event.start.dateTime.split('T')[0] : 
+       event.start?.date || new Date().toISOString().split('T')[0],
+     time: event.start?.dateTime ? 
+       event.start.dateTime.split('T')[1].split('+')[0].substring(0, 5) : 
+       '00:00',
+     educatorName: event.attendees?.find((a: any) => a.email !== user?.email)?.displayName || 'Unknown Educator',
+     description: event.description || '',
+     location: event.location || '',
+     googleEventId: event.id,
+     source: 'google_calendar'
+   }));
 
     return NextResponse.json({
       success: true,

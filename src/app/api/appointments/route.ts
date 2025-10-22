@@ -382,7 +382,89 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString()
     };
 
-    // Google Calendar sync can be added later if needed
+    // Google Calendar sync - update event if it exists
+    let googleCalendarSynced = false;
+    if (appointment.googleEventId) {
+      try {
+        // Get Google Calendar tokens
+        const tokensFile = path.join(process.cwd(), 'data', 'google-tokens.json');
+        if (fs.existsSync(tokensFile)) {
+          const tokensData = JSON.parse(fs.readFileSync(tokensFile, 'utf8'));
+          const userTokens = tokensData[userId];
+          
+          if (userTokens && userTokens.access_token) {
+            let accessToken = userTokens.access_token;
+            
+            // Check if token is expired and refresh if needed
+            if (userTokens.expires_at && Date.now() >= userTokens.expires_at) {
+              if (userTokens.refresh_token) {
+                const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body: new URLSearchParams({
+                    client_id: process.env.GOOGLE_CLIENT_ID!,
+                    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+                    refresh_token: userTokens.refresh_token,
+                    grant_type: 'refresh_token'
+                  })
+                });
+                
+                if (refreshResponse.ok) {
+                  const refreshData = await refreshResponse.json();
+                  accessToken = refreshData.access_token;
+                  
+                  // Update tokens
+                  tokensData[userId] = {
+                    ...userTokens,
+                    access_token: refreshData.access_token,
+                    expires_at: Date.now() + (refreshData.expires_in * 1000)
+                  };
+                  fs.writeFileSync(tokensFile, JSON.stringify(tokensData, null, 2));
+                }
+              }
+            }
+            
+            // Update event in Google Calendar
+            const googleEvent = {
+              summary: `${rescheduledAppointment.title} - ${rescheduledAppointment.educatorName}`,
+              description: rescheduledAppointment.description || `Lesson with ${rescheduledAppointment.educatorName}`,
+              start: {
+                dateTime: new Date(rescheduledAppointment.startTime).toISOString(),
+                timeZone: 'UTC'
+              },
+              end: {
+                dateTime: new Date(rescheduledAppointment.endTime).toISOString(),
+                timeZone: 'UTC'
+              },
+              location: rescheduledAppointment.location || 'TBD',
+              extendedProperties: {
+                private: {
+                  moonriver: 'true'
+                }
+              }
+            };
+            
+            const updateResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${appointment.googleEventId}`, {
+              method: 'PUT',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(googleEvent),
+            });
+            
+            if (updateResponse.ok) {
+              console.log(`Updated Google Calendar event ${appointment.googleEventId} for rescheduled appointment ${appointmentId}`);
+              googleCalendarSynced = true;
+            } else {
+              console.error(`Failed to update Google Calendar event ${appointment.googleEventId}:`, updateResponse.status);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing reschedule to Google Calendar:', error);
+      }
+    }
 
     // Save to JSON file
     const { appointments: rescheduleFileAppointments, nextId: rescheduleNextId } = readAppointments();
@@ -395,8 +477,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       appointment: rescheduledAppointment,
-      message: 'Appointment rescheduled successfully',
-      syncedWithGoogle: !!appointment.googleEventId
+      message: `Appointment rescheduled successfully${googleCalendarSynced ? ' and updated in Google Calendar' : ''}`,
+      syncedWithGoogle: googleCalendarSynced
     });
   }
 
@@ -440,7 +522,68 @@ export async function POST(request: NextRequest) {
       cancelledBy: userEmail
     };
 
-    // Google Calendar sync can be added later if needed
+    // Google Calendar sync - delete event if it exists
+    let googleCalendarSynced = false;
+    if (appointment.googleEventId) {
+      try {
+        // Get Google Calendar tokens
+        const tokensFile = path.join(process.cwd(), 'data', 'google-tokens.json');
+        if (fs.existsSync(tokensFile)) {
+          const tokensData = JSON.parse(fs.readFileSync(tokensFile, 'utf8'));
+          const userTokens = tokensData[userId];
+          
+          if (userTokens && userTokens.access_token) {
+            let accessToken = userTokens.access_token;
+            
+            // Check if token is expired and refresh if needed
+            if (userTokens.expires_at && Date.now() >= userTokens.expires_at) {
+              if (userTokens.refresh_token) {
+                const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                  body: new URLSearchParams({
+                    client_id: process.env.GOOGLE_CLIENT_ID!,
+                    client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+                    refresh_token: userTokens.refresh_token,
+                    grant_type: 'refresh_token'
+                  })
+                });
+                
+                if (refreshResponse.ok) {
+                  const refreshData = await refreshResponse.json();
+                  accessToken = refreshData.access_token;
+                  
+                  // Update tokens
+                  tokensData[userId] = {
+                    ...userTokens,
+                    access_token: refreshData.access_token,
+                    expires_at: Date.now() + (refreshData.expires_in * 1000)
+                  };
+                  fs.writeFileSync(tokensFile, JSON.stringify(tokensData, null, 2));
+                }
+              }
+            }
+            
+            // Delete event from Google Calendar
+            const deleteResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${appointment.googleEventId}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+              },
+            });
+            
+            if (deleteResponse.ok) {
+              console.log(`Deleted Google Calendar event ${appointment.googleEventId} for cancelled appointment ${appointmentId}`);
+              googleCalendarSynced = true;
+            } else {
+              console.error(`Failed to delete Google Calendar event ${appointment.googleEventId}:`, deleteResponse.status);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error syncing cancellation to Google Calendar:', error);
+      }
+    }
 
     // Save to JSON file
     const { appointments: cancelFileAppointments, nextId: cancelNextId } = readAppointments();
@@ -453,8 +596,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       appointment: cancelledAppointment,
-      message: 'Appointment cancelled successfully',
-      syncedWithGoogle: !!appointment.googleEventId
+      message: `Appointment cancelled successfully${googleCalendarSynced ? ' and removed from Google Calendar' : ''}`,
+      syncedWithGoogle: googleCalendarSynced
     });
   }
 

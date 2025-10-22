@@ -49,7 +49,7 @@
       "description": "",
       "startTime": "2025-10-29T03:00:00",
       "endTime": "2025-10-29T04:00:00",
-      "status": "pending",
+      "status": "cancelled",
       "type": "lesson",
       "location": "TBD",
       "notes": "",
@@ -92,8 +92,119 @@
           "reason": "No reason provided"
         }
       ],
-      "updatedAt": "2025-10-22T03:04:32.679Z"
+      "updatedAt": "2025-10-22T03:04:32.679Z",
+      "cancellationReason": "No reason provided",
+      "cancelledAt": "2025-10-22T04:10:44.607Z",
+      "cancelledBy": "student@moonriver.com"
+    },
+    {
+      "id": 3,
+      "educatorId": "adele-adkins",
+      "educatorName": "Adele Adkins",
+      "studentId": "auth0|68f0970657a65f6a14ef94f0",
+      "studentName": "student@moonriver.com",
+      "studentEmail": "student@moonriver.com",
+      "title": "guitar",
+      "description": "",
+      "startTime": "2025-10-31T07:14:00",
+      "endTime": "2025-10-31T08:14:00",
+      "status": "cancelled",
+      "type": "lesson",
+      "location": "TBD",
+      "notes": "",
+      "createdAt": "2025-10-22T04:10:58.758Z",
+      "googleEventId": "051r91sqji5pafkrn6k2a5t9dg",
+      "rescheduleHistory": [
+        {
+          "originalStartTime": "2025-10-26T07:14:00",
+          "originalEndTime": "2025-10-26T08:14:00",
+          "rescheduledAt": "2025-10-22T04:38:59.467Z",
+          "rescheduledBy": "student@moonriver.com",
+          "reason": "No reason provided"
+        },
+        {
+          "originalStartTime": "2025-10-30T07:14:00",
+          "originalEndTime": "2025-10-30T08:14:00",
+          "rescheduledAt": "2025-10-22T04:55:07.431Z",
+          "rescheduledBy": "student@moonriver.com",
+          "reason": "No reason provided"
+        },
+        {
+          "originalStartTime": "2025-10-27T07:14:00",
+          "originalEndTime": "2025-10-27T08:14:00",
+          "rescheduledAt": "2025-10-22T04:58:35.686Z",
+          "rescheduledBy": "student@moonriver.com",
+          "reason": "No reason provided"
+        }
+      ],
+      "updatedAt": "2025-10-22T04:58:35.686Z",
+      "cancellationReason": "No reason provided",
+      "cancelledAt": "2025-10-22T05:04:48.016Z",
+      "cancelledBy": "student@moonriver.com"
+    },
+    {
+      "id": 4,
+      "educatorId": "steve-vai",
+      "educatorName": "Steve Vai",
+      "studentId": "auth0|68f0970657a65f6a14ef94f0",
+      "studentName": "student@moonriver.com",
+      "studentEmail": "student@moonriver.com",
+      "title": "piano",
+      "description": "",
+      "startTime": "2025-10-24T07:06:00",
+      "endTime": "2025-10-24T08:06:00",
+      "status": "cancelled",
+      "type": "lesson",
+      "location": "TBD",
+      "notes": "",
+      "createdAt": "2025-10-22T05:03:10.927Z",
+      "googleEventId": "0a0omoa2luja6opfhc7rit3rhc",
+      "cancellationReason": "No reason provided",
+      "cancelledAt": "2025-10-22T05:05:22.649Z",
+      "cancelledBy": "student@moonriver.com"
+    },
+    {
+      "id": 5,
+      "educatorId": "taylor-swift",
+      "educatorName": "Taylor Swift",
+      "studentId": "auth0|68f0970657a65f6a14ef94f0",
+      "studentName": "student@moonriver.com",
+      "studentEmail": "student@moonriver.com",
+      "title": "piano",
+      "description": "",
+      "startTime": "2025-10-23T07:10:00",
+      "endTime": "2025-10-23T08:10:00",
+      "status": "pending",
+      "type": "lesson",
+      "location": "TBD",
+      "notes": "",
+      "createdAt": "2025-10-22T05:08:05.070Z",
+      "googleEventId": "j3crg9ntc67nhdpbok64ea268g",
+      "rescheduleHistory": [
+        {
+          "originalStartTime": "2025-10-25T19:10:00",
+          "originalEndTime": "2025-10-25T20:10:00",
+          "rescheduledAt": "2025-10-22T05:08:35.276Z",
+          "rescheduledBy": "student@moonriver.com",
+          "reason": "No reason provided"
+        },
+        {
+          "originalStartTime": "2025-10-27T07:10:00",
+          "originalEndTime": "2025-10-27T08:10:00",
+          "rescheduledAt": "2025-10-22T05:08:45.990Z",
+          "rescheduledBy": "student@moonriver.com",
+          "reason": "No reason provided"
+        },
+        {
+          "originalStartTime": "2025-10-31T07:10:00",
+          "originalEndTime": "2025-10-31T08:10:00",
+          "rescheduledAt": "2025-10-22T05:09:03.361Z",
+          "rescheduledBy": "student@moonriver.com",
+          "reason": "No reason provided"
+        }
+      ],
+      "updatedAt": "2025-10-22T05:09:03.361Z"
     }
   ],
-  "nextId": 3
+  "nextId": 6
 }

@@ -122,7 +122,8 @@ export default function StudentAppointmentsPage() {
           type: 'success',
           message: `Successfully synced ${data.syncedCount || 0} appointments to Google Calendar!`
         });
-        fetchAppointments(); // Refresh the appointments list
+        // Refresh appointments to get the updated data with Google Calendar events
+        await fetchAppointments();
       } else {
         setNotification({
           type: 'error',
