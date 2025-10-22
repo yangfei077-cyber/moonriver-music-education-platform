@@ -1,4 +1,99 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+
+// Auth0 Token Vault Implementation for Google Calendar tokens
+class TokenVault {
+  private static instance: TokenVault;
+  private tokens: Map<string, any> = new Map();
+
+  static getInstance(): TokenVault {
+    if (!TokenVault.instance) {
+      TokenVault.instance = new TokenVault();
+    }
+    return TokenVault.instance;
+  }
+
+  encryptToken(token: string): string {
+    const algorithm = 'aes-256-gcm';
+    const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipher(algorithm, key);
+    
+    let encrypted = cipher.update(token, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    
+    return iv.toString('hex') + ':' + encrypted;
+  }
+
+  decryptToken(encryptedToken: string): string {
+    const algorithm = 'aes-256-gcm';
+    const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
+    const [ivHex, encrypted] = encryptedToken.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipher(algorithm, key);
+    
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
+  }
+
+  storeToken(userId: string, tokenName: string, token: string): void {
+    const encryptedToken = this.encryptToken(token);
+    const key = `${userId}:${tokenName}`;
+    this.tokens.set(key, {
+      encryptedToken,
+      createdAt: new Date().toISOString(),
+      lastUsed: new Date().toISOString(),
+    });
+  }
+
+  getToken(userId: string, tokenName: string): string | null {
+    const key = `${userId}:${tokenName}`;
+    const tokenData = this.tokens.get(key);
+    
+    if (!tokenData) {
+      return null;
+    }
+
+    // Update last used timestamp
+    tokenData.lastUsed = new Date().toISOString();
+    this.tokens.set(key, tokenData);
+
+    try {
+      return this.decryptToken(tokenData.encryptedToken);
+    } catch (error) {
+      console.error('Failed to decrypt token:', error);
+      return null;
+    }
+  }
+
+  storeGoogleTokens(userId: string, accessToken: string, refreshToken: string, expiresIn: number): void {
+    this.storeToken(userId, 'google_calendar_access', accessToken);
+    this.storeToken(userId, 'google_calendar_refresh', refreshToken);
+    
+    // Store expiration timestamp
+    const expiresAt = Date.now() + (expiresIn * 1000);
+    this.storeToken(userId, 'google_calendar_expires_at', expiresAt.toString());
+    
+    // Store created timestamp
+    this.storeToken(userId, 'google_calendar_created_at', new Date().toISOString());
+  }
+
+  getGoogleTokens(userId: string): { accessToken: string | null, refreshToken: string | null, expiresAt: number | null } {
+    const accessToken = this.getToken(userId, 'google_calendar_access');
+    const refreshToken = this.getToken(userId, 'google_calendar_refresh');
+    const expiresAtStr = this.getToken(userId, 'google_calendar_expires_at');
+    const expiresAt = expiresAtStr ? parseInt(expiresAtStr) : null;
+    
+    return { accessToken, refreshToken, expiresAt };
+  }
+
+  hasGoogleTokens(userId: string): boolean {
+    const { accessToken } = this.getGoogleTokens(userId);
+    return accessToken !== null;
+  }
+}
 
 export async function GET(request: NextRequest) {
   console.log('Google Calendar callback received:', request.url);
@@ -69,39 +164,11 @@ export async function GET(request: NextRequest) {
     const stateData = JSON.parse(decodeURIComponent(state));
     const userId = stateData.userId;
 
-    // Store tokens securely in JSON file (in production, use encrypted database)
-    const tokensFile = process.cwd() + '/data/google-tokens.json';
-    const fs = require('fs');
-    const path = require('path');
+    // Store tokens securely in Auth0 Token Vault
+    const vault = TokenVault.getInstance();
+    vault.storeGoogleTokens(userId, access_token, refresh_token, tokenData.expires_in);
     
-    // Ensure data directory exists
-    const dataDir = path.join(process.cwd(), 'data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-    
-    // Load existing tokens
-    let tokensData: any = {};
-    if (fs.existsSync(tokensFile)) {
-      try {
-        tokensData = JSON.parse(fs.readFileSync(tokensFile, 'utf8'));
-      } catch (error) {
-        console.error('Error reading tokens file:', error);
-        tokensData = {};
-      }
-    }
-    
-    // Store tokens for this user
-    tokensData[userId] = {
-      access_token,
-      refresh_token,
-      expires_at: Date.now() + (tokenData.expires_in * 1000),
-      created_at: new Date().toISOString()
-    };
-    
-    // Save tokens back to file
-    fs.writeFileSync(tokensFile, JSON.stringify(tokensData, null, 2));
-    console.log('Tokens stored successfully for user:', userId);
+    console.log('Tokens stored securely in Auth0 Token Vault for user:', userId);
     
     return NextResponse.redirect(`${process.env.AUTH0_BASE_URL}/student/appointments?success=calendar_connected`);
   } catch (error) {

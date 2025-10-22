@@ -318,7 +318,7 @@ export default function EducatorStudents() {
       ];
 
       // Filter students based on educator's courses - limit to 3 students for "My Students"
-      let myStudents = [];
+      let myStudents: any[] = [];
       if (user?.email === 'educator@moonriver.com') {
         // Dr. Sarah Johnson's students (Piano, Music Theory, and Jazz Piano courses) - take first 3
         const filteredStudents = allStudents.filter(student => 

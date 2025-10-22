@@ -233,7 +233,7 @@ export default function EducatorDashboard() {
                         </div>
                         {student.interests && student.interests.length > 0 && (
                           <div className="flex flex-wrap gap-1 mt-1">
-                            {student.interests.slice(0, 3).map((interest, index) => (
+                            {student.interests.slice(0, 3).map((interest: any, index: number) => (
                               <span
                                 key={index}
                                 className="inline-flex items-center px-1 py-0.5 rounded-full text-xs bg-blue-100 text-blue-800"

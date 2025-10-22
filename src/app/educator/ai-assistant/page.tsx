@@ -57,7 +57,7 @@ export default function EducatorAIAssistant() {
       ];
 
       // Filter students based on educator's courses
-      let myStudents = [];
+      let myStudents: any[] = [];
       if (user?.email === 'educator@moonriver.com') {
         // Dr. Sarah Johnson's students (Piano and Music Theory courses)
         myStudents = allStudents.filter(student => 

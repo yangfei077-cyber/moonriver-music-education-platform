@@ -19,7 +19,7 @@ export default handleAuth({
   }),
   callback: handleCallback({
     // Optionally enrich the session after Auth0 callback
-    afterCallback: async (_req, _res, session) => {
+    afterCallback: async (_req: any, _res: any, session: any) => {
       // Example: derive a role from email for demo; replace with RBAC/Rules/Actions if needed
       const email = session.user?.email || '';
       let roles: string[] = [];

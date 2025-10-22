@@ -85,7 +85,7 @@ export default function EducatorCourses() {
       ];
 
       // Filter courses based on current user
-      let myCourses = [];
+      let myCourses: any[] = [];
       if (user?.email === 'educator@moonriver.com') {
         // Dr. Sarah Johnson's courses
         myCourses = allCourses.filter(course => course.instructor === "Dr. Sarah Johnson");
