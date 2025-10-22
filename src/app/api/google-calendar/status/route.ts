@@ -76,11 +76,22 @@ export async function GET() {
   const userId = user?.sub;
 
   try {
-    // Check Token Vault for stored Google Calendar tokens
-    const tokenVault = TokenVault.getInstance();
-    const accessToken = tokenVault.getToken(userId!, 'google_calendar_access_token');
+    // Check for stored Google Calendar tokens
+    const tokensFile = process.cwd() + '/data/google-tokens.json';
+    const fs = require('fs');
     
-    if (!accessToken) {
+    if (!fs.existsSync(tokensFile)) {
+      return NextResponse.json({
+        connected: false,
+        userId: userId,
+        message: 'Google Calendar not connected'
+      });
+    }
+    
+    const tokensData = JSON.parse(fs.readFileSync(tokensFile, 'utf8'));
+    const userTokens = tokensData[userId!];
+    
+    if (!userTokens || !userTokens.access_token) {
       return NextResponse.json({
         connected: false,
         userId: userId,
@@ -88,10 +99,60 @@ export async function GET() {
       });
     }
 
+    // Check if token is expired
+    if (userTokens.expires_at && Date.now() > userTokens.expires_at) {
+      // Try to refresh the token if we have a refresh token
+      if (userTokens.refresh_token) {
+        try {
+          const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+              client_id: process.env.GOOGLE_CLIENT_ID!,
+              client_secret: process.env.GOOGLE_CLIENT_SECRET!,
+              refresh_token: userTokens.refresh_token,
+              grant_type: 'refresh_token',
+            }),
+          });
+          
+          if (refreshResponse.ok) {
+            const newTokens = await refreshResponse.json();
+            
+            // Update stored tokens
+            userTokens.access_token = newTokens.access_token;
+            userTokens.expires_at = Date.now() + (newTokens.expires_in * 1000);
+            tokensData[userId!] = userTokens;
+            fs.writeFileSync(tokensFile, JSON.stringify(tokensData, null, 2));
+          } else {
+            return NextResponse.json({
+              connected: false,
+              userId: userId,
+              message: 'Google Calendar connection expired and refresh failed'
+            });
+          }
+        } catch (refreshError) {
+          console.error('Token refresh failed:', refreshError);
+          return NextResponse.json({
+            connected: false,
+            userId: userId,
+            message: 'Google Calendar connection expired'
+          });
+        }
+      } else {
+        return NextResponse.json({
+          connected: false,
+          userId: userId,
+          message: 'Google Calendar connection expired'
+        });
+      }
+    }
+
     // Test the token by making a simple API call
     const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${userTokens.access_token}`,
       },
     });
 

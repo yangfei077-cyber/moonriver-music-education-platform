@@ -48,9 +48,6 @@ export default function StudentAppointmentsPage() {
   useEffect(() => {
     fetchAppointments();
     
-    // Check if Google Calendar is connected
-    checkGoogleCalendarConnection();
-    
     // Check for URL parameters (success/error messages)
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
@@ -61,7 +58,12 @@ export default function StudentAppointmentsPage() {
       setIsGoogleCalendarConnected(true);
       // Clean up URL
       window.history.replaceState({}, '', '/student/appointments');
-    } else if (error) {
+    } else {
+      // Only check connection status if not already connected via URL parameter
+      checkGoogleCalendarConnection();
+    }
+    
+    if (error) {
       let errorMessage = 'An error occurred';
       if (error === 'oauth_error') errorMessage = 'Failed to connect to Google Calendar';
       if (error === 'missing_params') errorMessage = 'Invalid connection parameters';
@@ -98,6 +100,41 @@ export default function StudentAppointmentsPage() {
       }
     } catch (error) {
       console.error('Error connecting to Google Calendar:', error);
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  const syncAppointmentsToGoogle = async () => {
+    setIsConnecting(true);
+    try {
+      const response = await fetch('/api/google-calendar/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        setNotification({
+          type: 'success',
+          message: `Successfully synced ${data.syncedCount || 0} appointments to Google Calendar!`
+        });
+        fetchAppointments(); // Refresh the appointments list
+      } else {
+        setNotification({
+          type: 'error',
+          message: data.error || 'Failed to sync appointments to Google Calendar'
+        });
+      }
+    } catch (error) {
+      console.error('Error syncing appointments:', error);
+      setNotification({
+        type: 'error',
+        message: 'Failed to sync appointments to Google Calendar'
+      });
     } finally {
       setIsConnecting(false);
     }
@@ -607,12 +644,17 @@ export default function StudentAppointmentsPage() {
               </div>
             ) : (
               <button 
-                onClick={connectGoogleCalendar}
+                onClick={isGoogleCalendarConnected ? syncAppointmentsToGoogle : connectGoogleCalendar}
                 disabled={isConnecting}
                 className="w-full bg-white border border-[#F28C4A] text-[#F28C4A] px-4 py-2 rounded-lg hover:bg-[#FFF0E6] transition-colors flex items-center justify-center space-x-2 disabled:opacity-50"
               >
                 <Calendar className="w-4 h-4" />
-                <span>{isConnecting ? 'Connecting...' : 'Connect with Google Calendar'}</span>
+                <span>
+                  {isConnecting 
+                    ? (isGoogleCalendarConnected ? 'Syncing...' : 'Connecting...') 
+                    : (isGoogleCalendarConnected ? 'Sync appointments to Google Calendar' : 'Connect with Google Calendar')
+                  }
+                </span>
               </button>
             )}
           </div>
