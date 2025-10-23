@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Music, Users, Settings, BookOpen, GraduationCap, Shield, Heart, User, Search, MessageSquare, Mail, Tag, Calendar, Bot, Target, LogIn, UserPlus } from 'lucide-react';
 import { useUser } from '@auth0/nextjs-auth0/client';
+import { Bot } from 'lucide-react';
 
 interface Interest {
   id: string;
@@ -28,8 +28,12 @@ export default function HomePage() {
   const [loadingCourses, setLoadingCourses] = useState(false);
 
   const handleLogout = () => {
-    window.location.href = '/api/auth/logout';
+    window.location.href = '/auth/logout';
   };
+
+  useEffect(() => {
+    console.log('Auth0 useUser state:', { user, error, isLoading });
+  }, [user, error, isLoading]);
 
   // Fetch user data when user is available
   useEffect(() => {
@@ -181,7 +185,7 @@ export default function HomePage() {
               <a className="hover:text-primary dark:hover:text-primary transition-colors" href="#about">About</a>
             </nav>
             <button 
-              onClick={() => window.location.href = '/api/auth/login'}
+              onClick={() => window.location.href = '/auth/login'}
               className="bg-mango-orange text-white px-6 py-2 rounded-full font-semibold hover:bg-opacity-90 transition-all"
             >
               Get Started
@@ -198,7 +202,7 @@ export default function HomePage() {
             </p>
             <div className="mt-10">
               <button 
-                onClick={() => window.location.href = '/api/auth/login?screen_hint=signup'}
+                onClick={() => window.location.href = '/auth/login?screen_hint=signup'}
                 className="bg-primary text-white px-10 py-4 rounded-full font-semibold text-lg hover:bg-opacity-90 shadow-lg transition-all"
               >
                 Explore Courses

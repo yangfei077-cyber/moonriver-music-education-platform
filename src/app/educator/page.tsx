@@ -10,7 +10,7 @@ export default function EducatorDashboard() {
   const [myStudents, setMyStudents] = useState<any[]>([]);
 
   const handleLogout = () => {
-    window.location.href = '/api/auth/logout';
+    window.location.href = '/auth/logout';
   };
 
   // Fetch educator's students
@@ -67,7 +67,7 @@ export default function EducatorDashboard() {
             
             <div className="space-y-4">
               <a
-                href="/api/auth/login"
+                href="/auth/login"
                 className="inline-block bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
               >
                 Login with Auth0

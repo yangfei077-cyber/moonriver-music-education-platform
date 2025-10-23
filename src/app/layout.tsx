@@ -1,4 +1,4 @@
-import { UserProvider } from '@auth0/nextjs-auth0/client';
+import { Auth0Provider } from '@auth0/nextjs-auth0/client';
 import './globals.css';
 import { Poppins } from 'next/font/google';
 
@@ -24,9 +24,9 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet" />
       </head>
       <body className={poppins.className} style={{ backgroundColor: '#FFFBEB' }}>
-        <UserProvider>
+        <Auth0Provider>
           {children}
-        </UserProvider>
+        </Auth0Provider>
       </body>
     </html>
   );

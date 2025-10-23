@@ -4,10 +4,8 @@ import { getAccessToken } from "@auth0/nextjs-auth0";
 export const auth0 = {
   async getAccessTokenForConnection({ connection }: { connection: string }) {
     try {
-      const { accessToken } = await getAccessToken({
-        authorizationParams: {
-          connection,
-        }
+      const accessToken = await getAccessToken({
+        audience: connection,
       });
       
       return { token: accessToken };

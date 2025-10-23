@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
       }
     );
   }
-
-  return NextResponse.json({
+  
+  return NextResponse.json({ 
     message: 'Token management handled by Auth0 v4 Token Vault - MCP Compliant',
     action: 'Use Auth0\'s universal login to connect your accounts',
     documentation: 'https://auth0.com/docs/secure/tokens/token-vault',

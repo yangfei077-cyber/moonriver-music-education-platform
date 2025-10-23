@@ -465,7 +465,7 @@ export default function StudentAppointmentsPage() {
           </div>
           <div>
             <button 
-              onClick={() => window.location.href = '/api/auth/logout'}
+              onClick={() => window.location.href = '/auth/logout'}
               className="flex items-center space-x-3 text-[#555555] hover:text-[#F28C4A] hover:bg-[#FFF0E6] px-4 py-2 rounded-lg transition-colors w-full"
             >
               <span className="material-symbols-outlined">logout</span>
