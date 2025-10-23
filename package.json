@@ -9,12 +9,16 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@auth0/nextjs-auth0": "^3.8.0",
+    "@auth0/ai-vercel": "^4.1.0",
+    "@auth0/nextjs-auth0": "^4.11.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/uuid": "^9.0.7",
+    "@vercel/postgres": "^0.10.0",
+    "ai": "^5.0.76",
     "autoprefixer": "^10.4.21",
+    "date-fns": "^4.1.0",
     "eslint": "^8",
     "eslint-config-next": "^15.2.3",
     "googleapis": "^164.1.0",
@@ -25,6 +29,7 @@
     "react-dom": "^18",
     "tailwindcss": "^3.3.0",
     "typescript": "^5",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "zod": "^4.1.12"
   }
 }

@@ -2,7 +2,7 @@ import { getSession } from '@auth0/nextjs-auth0';
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { TokenVault } from '@/lib/token-vault';
+import { auth0 } from '@/lib/auth0-client';
 
 // JSON file storage for appointments
 const APPOINTMENTS_FILE = path.join(process.cwd(), 'data', 'appointments.json');
@@ -103,8 +103,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Get Google Calendar token from Auth0 Token Vault
-    const vault = TokenVault.getInstance();
-    const accessToken = await vault.getValidGoogleAccessToken(userId!);
+    const { token: accessToken } = await auth0.getAccessTokenForConnection({ connection: 'google-oauth2' });
     
     if (!accessToken) {
       return NextResponse.json(

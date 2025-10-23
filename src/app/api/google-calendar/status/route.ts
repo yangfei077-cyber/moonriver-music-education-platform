@@ -1,54 +1,58 @@
-import { getSession } from '@auth0/nextjs-auth0';
-import { NextResponse } from 'next/server';
-import { TokenVault } from '@/lib/token-vault';
+import { NextRequest, NextResponse } from 'next/server';
+import { auth0 } from '@/lib/auth0-client';
 
-export async function GET() {
-  const session = await getSession();
+export async function GET(request: NextRequest) {
+  // MCP-compliant authentication: No sessions, only bearer tokens
+  const authHeader = request.headers.get('authorization');
   
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return NextResponse.json(
+      { error: 'Unauthorized' }, 
+      { 
+        status: 401,
+        headers: {
+          'WWW-Authenticate': 'Bearer realm="https://genai-2976115566729862.au.auth0.com/.well-known/oauth-authorization-server"'
+        }
+      }
+    );
   }
 
-  const user = session.user;
-  const userId = user?.sub;
+  const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
   try {
-    const vault = TokenVault.getInstance();
-    const accessToken = await vault.getValidGoogleAccessToken(userId!);
+    // Validate the access token using Auth0's Token Vault
+    const { token: validatedToken } = await auth0.getAccessTokenForConnection({ connection: 'google-oauth2' });
 
-    if (!accessToken) {
+    if (!validatedToken) {
       return NextResponse.json({
         connected: false,
-        userId: userId,
-        message: 'Google Calendar not connected'
+        message: 'Google Calendar not connected via Auth0 Token Vault'
       });
     }
 
     // Validate token by hitting Calendar API
     const response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary', {
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        'Authorization': `Bearer ${validatedToken}`,
       },
     });
 
     if (response.ok) {
       return NextResponse.json({
         connected: true,
-        userId: userId,
-        message: 'Google Calendar is connected'
+        message: 'Google Calendar is connected via Auth0 Token Vault',
+        mcpCompliant: true
       });
     }
 
     return NextResponse.json({
       connected: false,
-      userId: userId,
       message: 'Google Calendar connection expired'
     });
   } catch (error) {
     console.error('Error checking Google Calendar connection:', error);
     return NextResponse.json({
       connected: false,
-      userId: userId,
       message: 'Error checking Google Calendar connection'
     });
   }

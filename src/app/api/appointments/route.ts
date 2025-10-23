@@ -3,6 +3,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { auth0 } from '../../../lib/auth0-client';
+
+// Helper function to get Google Calendar token from Auth0 Token Vault
+async function getGoogleCalendarToken(): Promise<string | null> {
+  try {
+    const { token } = await auth0.getAccessTokenForConnection({ connection: 'google-oauth2' });
+    return token || null;
+  } catch (error) {
+    console.error('Error getting Google Calendar token from Auth0 Token Vault:', error);
+    return null;
+  }
+}
 
 // Auth0 Token Vault Implementation for Google Calendar tokens
 class TokenVault {
@@ -521,8 +533,7 @@ export async function POST(request: NextRequest) {
     if (appointment.googleEventId) {
       try {
         // Get Google Calendar token from Auth0 Token Vault
-        const vault = TokenVault.getInstance();
-        const accessToken = await vault.getValidGoogleAccessToken(userId!);
+        const accessToken = await getGoogleCalendarToken();
         
         if (accessToken) {
           // Update event in Google Calendar
@@ -627,8 +638,7 @@ export async function POST(request: NextRequest) {
     if (appointment.googleEventId) {
       try {
         // Get Google Calendar token from Auth0 Token Vault
-        const vault = TokenVault.getInstance();
-        const accessToken = await vault.getValidGoogleAccessToken(userId!);
+        const accessToken = await getGoogleCalendarToken();
         
         if (accessToken) {
           // Delete event from Google Calendar

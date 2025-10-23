@@ -1,70 +1,6 @@
 import { getSession } from '@auth0/nextjs-auth0';
 import { NextRequest, NextResponse } from 'next/server';
-
-// Import our TokenVault class
-class TokenVault {
-  private static instance: TokenVault;
-  private tokens: Map<string, any> = new Map();
-
-  static getInstance(): TokenVault {
-    if (!TokenVault.instance) {
-      TokenVault.instance = new TokenVault();
-    }
-    return TokenVault.instance;
-  }
-
-  encryptToken(token: string): string {
-    const crypto = require('crypto');
-    const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
-    
-    let encrypted = cipher.update(token, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    return iv.toString('hex') + ':' + encrypted;
-  }
-
-  decryptToken(encryptedToken: string): string {
-    const crypto = require('crypto');
-    const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
-    const [ivHex, encrypted] = encryptedToken.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipher(algorithm, key);
-    
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  }
-
-  storeToken(userId: string, tokenName: string, token: string): void {
-    const encryptedToken = this.encryptToken(token);
-    const key = `${userId}:${tokenName}`;
-    this.tokens.set(key, {
-      encryptedToken,
-      createdAt: new Date().toISOString(),
-      lastUsed: new Date().toISOString(),
-    });
-  }
-
-  getToken(userId: string, tokenName: string): string | null {
-    const key = `${userId}:${tokenName}`;
-    const tokenData = this.tokens.get(key);
-    
-    if (!tokenData) {
-      return null;
-    }
-
-    // Update last used timestamp
-    tokenData.lastUsed = new Date().toISOString();
-    this.tokens.set(key, tokenData);
-
-    return this.decryptToken(tokenData.encryptedToken);
-  }
-}
+import { auth0 } from '@/lib/auth0-client';
 
 // AI Agent API endpoint demonstrating Token Vault usage
 export async function POST(request: NextRequest) {
@@ -77,20 +13,19 @@ export async function POST(request: NextRequest) {
   const user = session.user;
   const roles = user?.['https://moonriver.com/roles'] || [];
   const userId = user?.sub;
-  const vault = TokenVault.getInstance();
 
   const { action, query } = await request.json();
 
   try {
     switch (action) {
       case 'analyze-music':
-        // Use user's Spotify token to analyze their music preferences
-        const spotifyToken = vault.getToken(userId!, 'spotify-api');
+        // Use user's Spotify token from Auth0 Token Vault
+        const { token: spotifyToken } = await auth0.getAccessTokenForConnection({ connection: 'spotify' });
         
         if (!spotifyToken) {
           return NextResponse.json({ 
-            error: 'Spotify API token required. Please add your Spotify API key to the Token Vault.',
-            requiresToken: 'spotify-api'
+            error: 'Spotify connection required. Please connect your Spotify account through Auth0.',
+            requiresConnection: 'spotify'
           }, { status: 400 });
         }
 
@@ -119,13 +54,13 @@ export async function POST(request: NextRequest) {
         });
 
       case 'generate-lesson':
-        // Use user's OpenAI token for AI-generated lessons
-        const openaiToken = vault.getToken(userId!, 'openai-api');
+        // Use user's OpenAI token from Auth0 Token Vault
+        const { token: openaiToken } = await auth0.getAccessTokenForConnection({ connection: 'openai' });
         
         if (!openaiToken) {
           return NextResponse.json({ 
-            error: 'OpenAI API token required. Please add your OpenAI API key to the Token Vault.',
-            requiresToken: 'openai-api'
+            error: 'OpenAI connection required. Please connect your OpenAI account through Auth0.',
+            requiresConnection: 'openai'
           }, { status: 400 });
         }
 
@@ -166,13 +101,13 @@ export async function POST(request: NextRequest) {
         });
 
       case 'transcribe-audio':
-        // Use user's Google Cloud token for audio transcription
-        const googleToken = vault.getToken(userId!, 'google-cloud-api');
+        // Use user's Google Cloud token from Auth0 Token Vault
+        const { token: googleToken } = await auth0.getAccessTokenForConnection({ connection: 'google-cloud' });
         
         if (!googleToken) {
           return NextResponse.json({ 
-            error: 'Google Cloud API token required. Please add your Google Cloud API key to the Token Vault.',
-            requiresToken: 'google-cloud-api'
+            error: 'Google Cloud connection required. Please connect your Google Cloud account through Auth0.',
+            requiresConnection: 'google-cloud'
           }, { status: 400 });
         }
 
@@ -184,31 +119,46 @@ export async function POST(request: NextRequest) {
         });
 
       case 'available-tools':
-        // Return list of tools user can access based on their stored tokens
+        // Return list of tools user can access based on their Auth0 connections
         const availableTools = [];
         
-        if (vault.getToken(userId!, 'spotify-api')) {
-          availableTools.push({
-            name: 'spotify-api',
-            description: 'Analyze your music preferences and create personalized playlists',
-            status: 'available'
-          });
+        try {
+          const { token: spotifyToken } = await auth0.getAccessTokenForConnection({ connection: 'spotify' });
+          if (spotifyToken) {
+            availableTools.push({
+              name: 'spotify-api',
+              description: 'Analyze your music preferences and create personalized playlists',
+              status: 'available'
+            });
+          }
+        } catch (error) {
+          // Connection not available
         }
         
-        if (vault.getToken(userId!, 'openai-api')) {
-          availableTools.push({
-            name: 'openai-api',
-            description: 'Generate AI-powered music lessons and educational content',
-            status: 'available'
-          });
+        try {
+          const { token: openaiToken } = await auth0.getAccessTokenForConnection({ connection: 'openai' });
+          if (openaiToken) {
+            availableTools.push({
+              name: 'openai-api',
+              description: 'Generate AI-powered music lessons and educational content',
+              status: 'available'
+            });
+          }
+        } catch (error) {
+          // Connection not available
         }
         
-        if (vault.getToken(userId!, 'google-cloud-api')) {
-          availableTools.push({
-            name: 'google-cloud-api',
-            description: 'Transcribe audio recordings and analyze speech patterns',
-            status: 'available'
-          });
+        try {
+          const { token: googleToken } = await auth0.getAccessTokenForConnection({ connection: 'google-cloud' });
+          if (googleToken) {
+            availableTools.push({
+              name: 'google-cloud-api',
+              description: 'Transcribe audio recordings and analyze speech patterns',
+              status: 'available'
+            });
+          }
+        } catch (error) {
+          // Connection not available
         }
 
         return NextResponse.json({
