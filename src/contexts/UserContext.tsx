@@ -22,12 +22,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [loadingRoles, setLoadingRoles] = useState(true);
   const [displayName, setDisplayName] = useState('');
 
-  // Email-based role detection function
-  const getUserRolesFromEmail = (email: string) => {
-    if (email === 'admin@moonriver.com') return ['Admin'];
-    if (email === 'educator@moonriver.com') return ['Educator'];
-    return ['Student'];
-  };
 
   // Fetch user roles from Management API
   useEffect(() => {
@@ -47,17 +41,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
           console.log('Role fetch response data:', data);
           setRoles(data.roles || ['Student']);
         } else {
-          const errorText = await response.text();
-          console.error('Failed to fetch user roles:', response.status, errorText);
-          // Fallback to email-based detection
-          const emailBasedRoles = user?.email ? getUserRolesFromEmail(user.email) : ['Student'];
-          setRoles(emailBasedRoles);
+          setRoles(['Student']);
         }
       } catch (error) {
-        console.error('Error fetching user roles:', error);
-        // Fallback to email-based detection
-        const emailBasedRoles = user?.email ? getUserRolesFromEmail(user.email) : ['Student'];
-        setRoles(emailBasedRoles);
+        setRoles(['Student']);
       } finally {
         setLoadingRoles(false);
       }

@@ -65,8 +65,14 @@ export async function GET(request: NextRequest) {
     const userId = user?.sub;
     const userEmail = user?.email;
 
-    // Fetch roles from Auth0 Management API
-    const roles = userId ? await getUserRoles(userId) : ['student'];
+    // Email-based role detection (same as UserContext)
+    const getUserRolesFromEmail = (email: string) => {
+      if (email === 'admin@moonriver.com') return ['Admin'];
+      if (email === 'educator@moonriver.com') return ['Educator'];
+      return ['Student'];
+    };
+    
+    const roles = userEmail ? getUserRolesFromEmail(userEmail) : ['Student'];
 
     console.log('=== AUTH0 DEBUG INFO ===');
     console.log('Full user object:', JSON.stringify(user, null, 2));
@@ -85,14 +91,14 @@ export async function GET(request: NextRequest) {
     let allAppointments = fileAppointments || [];
 
   // Filter appointments based on user role
-  if (roles.includes('educator')) {
+  if (roles.includes('Educator')) {
     // Educators see their own appointments
     allAppointments = allAppointments.filter((apt: any) => 
       apt.educatorId === userEmail || 
       apt.instructorEmail === userEmail ||
       apt.educatorEmail === userEmail
     );
-  } else if (roles.includes('student')) {
+  } else if (roles.includes('Student')) {
     // Students see appointments they're involved in
     allAppointments = allAppointments.filter((apt: any) => 
       apt.studentId === userId || 
@@ -169,8 +175,14 @@ export async function POST(request: NextRequest) {
   const userId = user?.sub;
   const userEmail = user?.email;
 
-  // Fetch roles from Auth0 Management API
-  const roles = userId ? await getUserRoles(userId) : ['student'];
+  // Email-based role detection (same as UserContext)
+  const getUserRolesFromEmail = (email: string) => {
+    if (email === 'admin@moonriver.com') return ['Admin'];
+    if (email === 'educator@moonriver.com') return ['Educator'];
+    return ['Student'];
+  };
+  
+  const roles = userEmail ? getUserRolesFromEmail(userEmail) : ['Student'];
 
   console.log('POST - User object:', user);
   console.log('POST - User roles from Management API:', roles);
@@ -180,7 +192,7 @@ export async function POST(request: NextRequest) {
 
   if (action === 'create') {
     // Only educators and students can create appointments
-    if (!roles.includes('educator') && !roles.includes('student')) {
+    if (!roles.includes('Educator') && !roles.includes('Student')) {
       return NextResponse.json({ error: 'Only educators and students can create appointments' }, { status: 403 });
     }
 
@@ -289,8 +301,8 @@ export async function POST(request: NextRequest) {
 
     // Check permissions
     const canUpdate = 
-      (roles.includes('educator') && appointment.educatorId === userEmail) ||
-      (roles.includes('student') && (appointment.studentId === userId || appointment.studentEmail === userEmail));
+      (roles.includes('Educator') && appointment.educatorId === userEmail) ||
+      (roles.includes('Student') && (appointment.studentId === userId || appointment.studentEmail === userEmail));
 
     if (!canUpdate) {
       return NextResponse.json({ error: 'Unauthorized to update this appointment' }, { status: 403 });
@@ -336,8 +348,8 @@ export async function POST(request: NextRequest) {
 
     // Check permissions
     const canReschedule = 
-      (roles.includes('educator') && appointment.educatorId === userEmail) ||
-      (roles.includes('student') && (appointment.studentId === userId || appointment.studentEmail === userEmail));
+      (roles.includes('Educator') && appointment.educatorId === userEmail) ||
+      (roles.includes('Student') && (appointment.studentId === userId || appointment.studentEmail === userEmail));
 
     if (!canReschedule) {
       return NextResponse.json({ error: 'Unauthorized to reschedule this appointment' }, { status: 403 });
@@ -501,8 +513,8 @@ export async function POST(request: NextRequest) {
 
     // Check permissions
     const canCancel = 
-      (roles.includes('educator') && appointment.educatorId === userEmail) ||
-      (roles.includes('student') && (appointment.studentId === userId || appointment.studentEmail === userEmail));
+      (roles.includes('Educator') && appointment.educatorId === userEmail) ||
+      (roles.includes('Student') && (appointment.studentId === userId || appointment.studentEmail === userEmail));
 
     if (!canCancel) {
       return NextResponse.json({ error: 'Unauthorized to cancel this appointment' }, { status: 403 });

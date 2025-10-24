@@ -282,13 +282,34 @@
       "description": "",
       "startTime": "2025-10-25T13:57:00",
       "endTime": "2025-10-25T14:57:00",
-      "status": "pending",
+      "status": "cancelled",
       "type": "lesson",
       "location": "TBD",
       "notes": "",
       "createdAt": "2025-10-23T00:55:59.704Z",
+      "googleEventId": null,
+      "cancellationReason": "No reason provided",
+      "cancelledAt": "2025-10-24T04:59:59.632Z",
+      "cancelledBy": "student@moonriver.com"
+    },
+    {
+      "id": 10,
+      "educatorId": "adele-adkins",
+      "educatorName": "Adele Adkins",
+      "studentId": "auth0|68f9f233c2a8608ff55db47f",
+      "studentName": "student@moonriver.com",
+      "studentEmail": "student@moonriver.com",
+      "title": "singing",
+      "description": "",
+      "startTime": "2025-10-26T08:04:00",
+      "endTime": "2025-10-26T09:04:00",
+      "status": "pending",
+      "type": "lesson",
+      "location": "TBD",
+      "notes": "",
+      "createdAt": "2025-10-24T05:00:17.487Z",
       "googleEventId": null
     }
   ],
-  "nextId": 10
+  "nextId": 11
 }
