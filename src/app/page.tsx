@@ -31,10 +31,6 @@ export default function HomePage() {
     window.location.href = '/auth/logout';
   };
 
-  useEffect(() => {
-    console.log('Auth0 useUser state:', { user, error, isLoading });
-  }, [user, error, isLoading]);
-
   // Fetch user data when user is available
   useEffect(() => {
     if (user) {
@@ -140,7 +136,7 @@ export default function HomePage() {
     );
   }
 
-  if (error) {
+  if (error && error.message !== 'Unauthorized') {
     return (
       <div className="min-h-screen bg-[#FFFCF5] flex justify-center items-center">
         <div className="text-center">
