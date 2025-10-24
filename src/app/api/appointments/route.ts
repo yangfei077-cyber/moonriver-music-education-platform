@@ -1,153 +1,22 @@
-import { getSession } from '@auth0/nextjs-auth0';
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import crypto from 'crypto';
-import { auth0 } from '../../../lib/auth0-client';
+import { auth0 } from '../../../../lib/auth0.js';
+import { getUserRoles } from '../../../lib/user-roles';
 
 // Helper function to get Google Calendar token from Auth0 Token Vault
 async function getGoogleCalendarToken(): Promise<string | null> {
   try {
-    const { token } = await auth0.getAccessTokenForConnection({ connection: 'google-oauth2' });
-    return token || null;
+    const tokenData = await auth0.getAccessToken({
+      audience: 'https://www.googleapis.com/auth/calendar.freebusy'
+    });
+    return tokenData?.token || null;
   } catch (error) {
-    console.error('Error getting Google Calendar token from Auth0 Token Vault:', error);
+    console.error('Error getting Google Calendar token from Auth0:', error);
     return null;
   }
 }
 
-// Auth0 Token Vault Implementation for Google Calendar tokens
-class TokenVault {
-  private static instance: TokenVault;
-  private tokens: Map<string, any> = new Map();
-
-  static getInstance(): TokenVault {
-    if (!TokenVault.instance) {
-      TokenVault.instance = new TokenVault();
-    }
-    return TokenVault.instance;
-  }
-
-  encryptToken(token: string): string {
-    const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
-    
-    let encrypted = cipher.update(token, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    return iv.toString('hex') + ':' + encrypted;
-  }
-
-  decryptToken(encryptedToken: string): string {
-    const algorithm = 'aes-256-gcm';
-    const key = crypto.scryptSync(process.env.TOKEN_VAULT_SECRET || 'default-secret', 'salt', 32);
-    const [ivHex, encrypted] = encryptedToken.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipher(algorithm, key);
-    
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  }
-
-  storeToken(userId: string, tokenName: string, token: string): void {
-    const encryptedToken = this.encryptToken(token);
-    const key = `${userId}:${tokenName}`;
-    this.tokens.set(key, {
-      encryptedToken,
-      createdAt: new Date().toISOString(),
-      lastUsed: new Date().toISOString(),
-    });
-  }
-
-  getToken(userId: string, tokenName: string): string | null {
-    const key = `${userId}:${tokenName}`;
-    const tokenData = this.tokens.get(key);
-    
-    if (!tokenData) {
-      return null;
-    }
-
-    // Update last used timestamp
-    tokenData.lastUsed = new Date().toISOString();
-    this.tokens.set(key, tokenData);
-
-    try {
-      return this.decryptToken(tokenData.encryptedToken);
-    } catch (error) {
-      console.error('Failed to decrypt token:', error);
-      return null;
-    }
-  }
-
-  storeGoogleTokens(userId: string, accessToken: string, refreshToken: string, expiresIn: number): void {
-    this.storeToken(userId, 'google_calendar_access', accessToken);
-    this.storeToken(userId, 'google_calendar_refresh', refreshToken);
-    
-    // Store expiration timestamp
-    const expiresAt = Date.now() + (expiresIn * 1000);
-    this.storeToken(userId, 'google_calendar_expires_at', expiresAt.toString());
-    
-    // Store created timestamp
-    this.storeToken(userId, 'google_calendar_created_at', new Date().toISOString());
-  }
-
-  getGoogleTokens(userId: string): { accessToken: string | null, refreshToken: string | null, expiresAt: number | null } {
-    const accessToken = this.getToken(userId, 'google_calendar_access');
-    const refreshToken = this.getToken(userId, 'google_calendar_refresh');
-    const expiresAtStr = this.getToken(userId, 'google_calendar_expires_at');
-    const expiresAt = expiresAtStr ? parseInt(expiresAtStr) : null;
-    
-    return { accessToken, refreshToken, expiresAt };
-  }
-
-  hasGoogleTokens(userId: string): boolean {
-    const { accessToken } = this.getGoogleTokens(userId);
-    return accessToken !== null;
-  }
-
-  async getValidGoogleAccessToken(userId: string): Promise<string | null> {
-    let { accessToken, refreshToken, expiresAt } = this.getGoogleTokens(userId);
-
-    if (!accessToken || !refreshToken) {
-      return null; // No tokens stored
-    }
-
-    if (expiresAt && Date.now() >= expiresAt) {
-      // Token expired, try to refresh
-      try {
-        const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            client_id: process.env.GOOGLE_CLIENT_ID!,
-            client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-            refresh_token: refreshToken,
-            grant_type: 'refresh_token',
-          }),
-        });
-
-        if (refreshResponse.ok) {
-          const newTokens = await refreshResponse.json();
-          this.storeGoogleTokens(userId, newTokens.access_token, refreshToken, newTokens.expires_in);
-          return newTokens.access_token;
-        } else {
-          console.error('Failed to refresh Google Calendar token:', await refreshResponse.text());
-          return null;
-        }
-      } catch (error) {
-        console.error('Error refreshing Google Calendar token:', error);
-        return null;
-      }
-    }
-    return accessToken;
-  }
-}
 
 // JSON file storage for appointments
 const APPOINTMENTS_FILE = path.join(process.cwd(), 'data', 'appointments.json');
@@ -185,30 +54,44 @@ function writeAppointments(data: any) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getSession();
-  
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  try {
+    const session = await auth0.getSession();
+    
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  const user = session.user;
-  const roles = user?.['https://moonriver.com/roles'] || [];
-  const userId = user?.sub;
-  const userEmail = user?.email;
+    const user = session.user;
+    const userId = user?.sub;
+    const userEmail = user?.email;
 
-  const { searchParams } = new URL(request.url);
-  const startDate = searchParams.get('startDate');
-  const endDate = searchParams.get('endDate');
-  const status = searchParams.get('status');
+    // Fetch roles from Auth0 Management API
+    const roles = userId ? await getUserRoles(userId) : ['student'];
 
-  // Get all appointments from JSON file
-  const { appointments: fileAppointments, nextId } = readAppointments();
-  let allAppointments = fileAppointments || [];
+    console.log('=== AUTH0 DEBUG INFO ===');
+    console.log('Full user object:', JSON.stringify(user, null, 2));
+    console.log('User email:', userEmail);
+    console.log('User ID:', userId);
+    console.log('User roles from Management API:', roles);
+    console.log('========================');
+
+    const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+    const status = searchParams.get('status');
+
+    // Get all appointments from JSON file
+    const { appointments: fileAppointments, nextId } = readAppointments();
+    let allAppointments = fileAppointments || [];
 
   // Filter appointments based on user role
   if (roles.includes('educator')) {
     // Educators see their own appointments
-    allAppointments = allAppointments.filter((apt: any) => apt.educatorId === userEmail);
+    allAppointments = allAppointments.filter((apt: any) => 
+      apt.educatorId === userEmail || 
+      apt.instructorEmail === userEmail ||
+      apt.educatorEmail === userEmail
+    );
   } else if (roles.includes('student')) {
     // Students see appointments they're involved in
     allAppointments = allAppointments.filter((apt: any) => 
@@ -269,19 +152,29 @@ export async function GET(request: NextRequest) {
     appointments: transformedAppointments,
     total: transformedAppointments.length
   });
+  } catch (error) {
+    console.error('Error in GET /api/appointments:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
+  const session = await auth0.getSession();
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const user = session.user;
-  const roles = user?.['https://moonriver.com/roles'] || [];
   const userId = user?.sub;
   const userEmail = user?.email;
+
+  // Fetch roles from Auth0 Management API
+  const roles = userId ? await getUserRoles(userId) : ['student'];
+
+  console.log('POST - User object:', user);
+  console.log('POST - User roles from Management API:', roles);
+  console.log('POST - User email:', userEmail);
 
   const { action, ...data } = await request.json();
 

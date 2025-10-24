@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useUser } from '@auth0/nextjs-auth0/client';
 import { Bot } from 'lucide-react';
+import { useUserContext } from '../contexts/UserContext';
 
 interface Interest {
   id: string;
@@ -19,11 +20,11 @@ interface TeachingArea {
 
 export default function HomePage() {
   const { user, error, isLoading } = useUser();
+  const { roles, isAdmin, isEducator, isStudent, loadingRoles, displayName, setDisplayName } = useUserContext();
   const [interests, setInterests] = useState<Interest[]>([]);
   const [teachingAreas, setTeachingAreas] = useState<TeachingArea[]>([]);
   const [loadingInterests, setLoadingInterests] = useState(false);
   const [loadingTeachingAreas, setLoadingTeachingAreas] = useState(false);
-  const [displayName, setDisplayName] = useState('');
   const [enrolledCourses, setEnrolledCourses] = useState<any[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
 
@@ -35,7 +36,12 @@ export default function HomePage() {
   useEffect(() => {
     if (user) {
       fetchUserProfile();
-      const roles = (user as any)?.['https://moonriver.com/roles'] || ['student'];
+    }
+  }, [user]);
+
+  // Fetch additional data based on user roles
+  useEffect(() => {
+    if (user && !loadingRoles) {
       const isStudent = roles.includes('student');
       const isEducator = roles.includes('educator');
       
@@ -47,7 +53,8 @@ export default function HomePage() {
         fetchTeachingAreas();
       }
     }
-  }, [user]);
+  }, [user, roles, loadingRoles]);
+
 
   const fetchUserProfile = async () => {
     if (!user) return;
@@ -198,7 +205,7 @@ export default function HomePage() {
             </p>
             <div className="mt-10">
               <button 
-                onClick={() => window.location.href = '/auth/login?screen_hint=signup'}
+                onClick={() => window.location.href = '/auth/login'}
                 className="bg-primary text-white px-10 py-4 rounded-full font-semibold text-lg hover:bg-opacity-90 shadow-lg transition-all"
               >
                 Explore Courses
@@ -351,11 +358,6 @@ export default function HomePage() {
     );
   }
 
-  // Show dashboard for authenticated users
-  const roles = (user as any)?.['https://moonriver.com/roles'] || ['student'];
-  const isAdmin = roles.includes('admin');
-  const isEducator = roles.includes('educator');
-  const isStudent = roles.includes('student');
 
   return (
     <div className="min-h-screen bg-background-light">

@@ -1,6 +1,7 @@
 import { Auth0Provider } from '@auth0/nextjs-auth0/client';
 import './globals.css';
 import { Poppins } from 'next/font/google';
+import { UserProvider } from '../contexts/UserContext';
 
 const poppins = Poppins({ 
   weight: ['400', '600', '700'],
@@ -25,7 +26,9 @@ export default function RootLayout({
       </head>
       <body className={poppins.className} style={{ backgroundColor: '#FFFBEB' }}>
         <Auth0Provider>
-          {children}
+          <UserProvider>
+            {children}
+          </UserProvider>
         </Auth0Provider>
       </body>
     </html>

@@ -1,5 +1,5 @@
-import { getSession } from '@auth0/nextjs-auth0/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { auth0 } from '../../../../lib/auth0';
 
 // Course and enrollment storage (in production, use a database)
 const courses: Map<number, any> = new Map();
@@ -7,8 +7,8 @@ const enrollments: Map<string, number[]> = new Map();
 const courseProgress: Map<string, Map<number, number>> = new Map();
 
 // Preselect student@moonriver.com with demo enrollments
-const DEMO_STUDENT_USER_ID = 'auth0|68f0970657a65f6a14ef94f0'; // student@moonriver.com
-enrollments.set(DEMO_STUDENT_USER_ID, [1, 2, 9, 13]); // Piano Fundamentals (1), Advanced Guitar Techniques (2), Vocal Training (9), Folk & Acoustic Guitar (13)
+const DEMO_STUDENT_EMAIL = 'student@moonriver.com';
+enrollments.set(DEMO_STUDENT_EMAIL, [1, 2, 9, 13]); // Piano Fundamentals (1), Advanced Guitar Techniques (2), Vocal Training (9), Folk & Acoustic Guitar (13)
 
 // Set specific progress for student@moonriver.com
 const studentProgress = new Map<number, number>();
@@ -16,7 +16,7 @@ studentProgress.set(1, 75); // Piano Fundamentals - 75%
 studentProgress.set(2, 45); // Advanced Guitar Techniques - 45%
 studentProgress.set(9, 30); // Vocal Training & Performance - 30%
 studentProgress.set(13, 20); // Folk & Acoustic Guitar - 20%
-courseProgress.set(DEMO_STUDENT_USER_ID, studentProgress);
+courseProgress.set(DEMO_STUDENT_EMAIL, studentProgress);
 
 // Initialize with sample courses
 const sampleCourses = [
@@ -298,14 +298,14 @@ sampleCourses.forEach(course => {
 });
 
 export async function GET(request: NextRequest) {
-  const session = await getSession();
+  const session = await auth0.getSession();
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const user = session.user;
-  const roles = user?.['https://moonriver.com/roles'] || [];
+  const roles = user?.['https://moonriver.com/roles'] || user?.roles || ['student']; // Default to student if no roles found
   const userId = user?.sub;
   const { searchParams } = new URL(request.url);
   const level = searchParams.get('level');
@@ -327,9 +327,10 @@ export async function GET(request: NextRequest) {
 
   // Add enrollment status for students
   if (roles.includes('student')) {
-    const studentEnrollments = enrollments.get(userId!) || [];
-    const studentProgressMap = courseProgress.get(userId!) || new Map();
-    console.log('Student enrollments for', userId, ':', studentEnrollments);
+    const userEmail = user?.email;
+    const studentEnrollments = enrollments.get(userEmail!) || [];
+    const studentProgressMap = courseProgress.get(userEmail!) || new Map();
+    console.log('Student enrollments for', userEmail, ':', studentEnrollments);
     allCourses = allCourses.map(course => {
       const isEnrolled = studentEnrollments.includes(course.id);
       const canEnroll = course.currentStudents < course.maxStudents && !studentEnrollments.includes(course.id);
@@ -356,15 +357,16 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
+  const session = await auth0.getSession();
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const user = session.user;
-  const roles = user?.['https://moonriver.com/roles'] || [];
+  const roles = user?.['https://moonriver.com/roles'] || user?.roles || ['student']; // Default to student if no roles found
   const userId = user?.sub;
+  const userEmail = user?.email;
   const { action, courseId } = await request.json();
 
   // Only students can enroll in courses
@@ -388,14 +390,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if already enrolled
-    const studentEnrollments = enrollments.get(userId!) || [];
+    const studentEnrollments = enrollments.get(userEmail!) || [];
     if (studentEnrollments.includes(courseId)) {
       return NextResponse.json({ error: 'Already enrolled in this course' }, { status: 400 });
     }
 
     // Enroll student
     studentEnrollments.push(courseId);
-    enrollments.set(userId!, studentEnrollments);
+    enrollments.set(userEmail!, studentEnrollments);
 
     // Update course enrollment count
     course.currentStudents += 1;
@@ -423,9 +425,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Remove enrollment
-    const studentEnrollments = enrollments.get(userId!) || [];
+    const studentEnrollments = enrollments.get(userEmail!) || [];
     const updatedEnrollments = studentEnrollments.filter(id => id !== courseId);
-    enrollments.set(userId!, updatedEnrollments);
+    enrollments.set(userEmail!, updatedEnrollments);
 
     // Update course enrollment count
     course.currentStudents = Math.max(0, course.currentStudents - 1);

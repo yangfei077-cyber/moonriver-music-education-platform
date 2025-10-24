@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth0 } from '@/lib/auth0-client';
+import { auth0 } from '../../../../../lib/auth0';
 
 export async function GET(request: NextRequest) {
-  // MCP-compliant authentication: No sessions, only bearer tokens
   const authHeader = request.headers.get('authorization');
   
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

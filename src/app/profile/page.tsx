@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { User, Mail, Shield, Music, ArrowLeft, Edit, Save, X, Tag, Filter, Check } from 'lucide-react';
 import { useUser } from '@auth0/nextjs-auth0/client';
+import { useUserContext } from '../../contexts/UserContext';
 
 interface Interest {
   id: string;
@@ -19,12 +20,12 @@ interface TeachingArea {
 
 export default function ProfilePage() {
   const { user, error, isLoading } = useUser();
+  const { roles, isAdmin, isEducator, isStudent, displayName, setDisplayName } = useUserContext();
   const [interests, setInterests] = useState<Interest[]>([]);
   const [teachingAreas, setTeachingAreas] = useState<TeachingArea[]>([]);
   const [loadingInterests, setLoadingInterests] = useState(false);
   const [loadingTeachingAreas, setLoadingTeachingAreas] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [isInterestsModalOpen, setIsInterestsModalOpen] = useState(false);
 
@@ -175,10 +176,6 @@ export default function ProfilePage() {
     );
   }
 
-  const roles = (user as any)?.['https://moonriver.com/roles'] || ['student'];
-  const isAdmin = roles.includes('admin');
-  const isEducator = roles.includes('educator');
-  const isStudent = roles.includes('student');
 
   return (
     <div className="min-h-screen bg-[#FDF8F0]">
