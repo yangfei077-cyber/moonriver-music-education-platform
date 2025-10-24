@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
 
-export async function GET() {
-  // Use Auth0's Continue URL for Token Vault linking
-  const auth0Domain = process.env.AUTH0_DOMAIN;
-  const authUrl = `https://${auth0Domain}/continue?connection=google-oauth2&connection_scope=https://www.googleapis.com/auth/calendar offline_access&prompt=consent`;
-  
-  return NextResponse.json({
-    authUrl,
-    message: 'Redirect to Auth0 Continue URL for Google Calendar linking'
-  });
+export async function GET(request: Request) {
+  const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+  const googleOAuthUrl = `${baseUrl}/auth/login?connection=google-oauth2&connection_scope=https://www.googleapis.com/auth/calendar&access_type=offline&prompt=consent&returnTo=${encodeURIComponent(`${baseUrl}/student/appointments`)}`;
+
+  return NextResponse.redirect(googleOAuthUrl);
 }
