@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { auth0 } from '../../../../lib/auth0.js';
-import { getUserRoles } from '../../../lib/user-roles';
 
 // Helper function to get Google Calendar token from Auth0 Token Vault
 async function getGoogleCalendarToken(): Promise<string | null> {
@@ -74,12 +73,6 @@ export async function GET(request: NextRequest) {
     
     const roles = userEmail ? getUserRolesFromEmail(userEmail) : ['Student'];
 
-    console.log('=== AUTH0 DEBUG INFO ===');
-    console.log('Full user object:', JSON.stringify(user, null, 2));
-    console.log('User email:', userEmail);
-    console.log('User ID:', userId);
-    console.log('User roles from Management API:', roles);
-    console.log('========================');
 
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get('startDate');
@@ -184,9 +177,6 @@ export async function POST(request: NextRequest) {
   
   const roles = userEmail ? getUserRolesFromEmail(userEmail) : ['Student'];
 
-  console.log('POST - User object:', user);
-  console.log('POST - User roles from Management API:', roles);
-  console.log('POST - User email:', userEmail);
 
   const { action, ...data } = await request.json();
 

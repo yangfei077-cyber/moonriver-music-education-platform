@@ -1,9 +1,6 @@
 // Reusable function to get user roles from Auth0 Management API
 export async function getUserRoles(userId: string): Promise<string[]> {
   try {
-    console.log('=== ROLE FETCHING DEBUG ===');
-    console.log('Fetching roles for userId:', userId);
-    console.log('Auth0 Domain:', process.env.AUTH0_DOMAIN);
     
     // Get Management API token using client credentials
     const tokenResponse = await fetch(`https://${process.env.AUTH0_DOMAIN}/oauth/token`, {
@@ -29,11 +26,9 @@ export async function getUserRoles(userId: string): Promise<string[]> {
     const tokenData = await tokenResponse.json();
     const managementToken = tokenData.access_token;
     
-    console.log('Management token obtained:', managementToken ? 'Present' : 'Missing');
-    
+
     // Fetch user roles from the specific roles endpoint
     const rolesUrl = `https://${process.env.AUTH0_DOMAIN}/api/v2/users/${userId}/roles`;
-    console.log('Fetching user roles from URL:', rolesUrl);
 
     const response = await fetch(rolesUrl, {
       headers: {
@@ -42,8 +37,6 @@ export async function getUserRoles(userId: string): Promise<string[]> {
       }
     });
 
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -52,12 +45,9 @@ export async function getUserRoles(userId: string): Promise<string[]> {
     }
 
     const roles = await response.json();
-    console.log('Raw roles response:', roles);
     
     // Extract role names from the roles array
     const roleNames = roles.map((role: any) => role.name);
-    console.log('Extracted role names:', roleNames);
-    console.log('========================');
     
     return roleNames;
   } catch (error) {

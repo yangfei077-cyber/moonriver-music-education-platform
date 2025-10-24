@@ -1,36 +1,12 @@
-import { auth0 } from '../../../../../lib/auth0';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const session = await auth0.getSession();
+  // Use Auth0's Continue URL for Token Vault linking
+  const auth0Domain = process.env.AUTH0_DOMAIN;
+  const authUrl = `https://${auth0Domain}/continue?connection=google-oauth2&connection_scope=https://www.googleapis.com/auth/calendar offline_access&prompt=consent`;
   
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || 'http://localhost:3000/api/google-calendar/callback';
-  
-  if (!clientId) {
-    return NextResponse.json({ 
-      error: 'Google Calendar integration not configured. Please set GOOGLE_CLIENT_ID environment variable.' 
-    }, { status: 500 });
-  }
-
-  const scope = 'https://www.googleapis.com/auth/calendar';
-  const state = encodeURIComponent(JSON.stringify({ userId: session.user?.sub }));
-  
-  const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
-    `client_id=${clientId}&` +
-    `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-    `scope=${encodeURIComponent(scope)}&` +
-    'response_type=code&' +
-    'access_type=offline&' +
-    'prompt=consent&' +
-    `state=${state}`;
-
   return NextResponse.json({
-    authUrl: authUrl,
-    message: 'Redirect to Google OAuth'
+    authUrl,
+    message: 'Redirect to Auth0 Continue URL for Google Calendar linking'
   });
 }
