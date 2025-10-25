@@ -1,9 +1,9 @@
-import { getSession } from '@auth0/nextjs-auth0/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { auth0 } from '../../../../lib/auth0';
 
 // Fine-Grained Authorization Implementation
 export async function GET(request: NextRequest) {
-  const session = await getSession();
+  const session = await auth0.getSession();
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -118,7 +118,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
+  const session = await auth0.getSession();
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -1,5 +1,5 @@
-import { getSession } from '@auth0/nextjs-auth0/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { auth0 } from '../../../../lib/auth0';
 
 // Student interests storage (in production, use a database)
 const studentInterests: Map<string, string[]> = new Map();

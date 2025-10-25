@@ -1,5 +1,5 @@
-import { getSession } from '@auth0/nextjs-auth0/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { auth0 } from '../../../../lib/auth0';
 
 // Educator and messaging storage (in production, use a database)
 const educators: Map<string, any> = new Map();
@@ -215,7 +215,7 @@ sampleEducators.forEach(educator => {
 
 export async function GET(request: NextRequest) {
   console.log('Educators API GET request received');
-  const session = await getSession();
+  const session = await auth0.getSession();
   
   if (!session) {
     console.log('No session found, returning 401');
@@ -290,7 +290,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
+  const session = await auth0.getSession();
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

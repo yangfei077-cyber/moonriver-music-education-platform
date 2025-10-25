@@ -1,8 +1,7 @@
-import { getSession } from '@auth0/nextjs-auth0/server';
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-import { auth0 } from '@/lib/auth0-client';
+import { auth0 } from '../../../../../lib/auth0';
 
 // JSON file storage for appointments
 const APPOINTMENTS_FILE = path.join(process.cwd(), 'data', 'appointments.json');
@@ -85,7 +84,7 @@ class GoogleCalendarService {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
+  const session = await auth0.getSession();
   
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

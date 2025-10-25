@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkUsersCalendar, createCalendarEvent } from '@/lib/ai-tools/calendar-tools';
+import { checkUsersCalendar, createCalendarEvent } from '../../../../lib/ai-tools/calendar-tools';
 
 export async function POST(request: NextRequest) {
   // MCP-compliant authentication: No sessions, only bearer tokens

@@ -1,5 +1,5 @@
 import { google } from "googleapis";
-import { auth0 } from "../../../lib/auth0";
+import { auth0 } from "../../lib/auth0";
 import { formatISO, addHours } from 'date-fns';
 
 export const checkUsersCalendar = {
