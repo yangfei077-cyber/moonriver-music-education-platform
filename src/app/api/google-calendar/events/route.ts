@@ -50,6 +50,8 @@ export async function GET(request: NextRequest) {
       
       // Check if Google event still exists (if we have a googleEventId)
       let shouldCreateNew = true;
+      let shouldUpdate = false;
+      
       if (appointment.googleEventId) {
         try {
           const checkResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${appointment.googleEventId}`, {
@@ -59,8 +61,9 @@ export async function GET(request: NextRequest) {
           });
           
           if (checkResponse.ok) {
-            console.log('Google event exists for appointment', appointment.id, '- skipping upload');
-            continue; // Event exists, skip
+            console.log('Google event exists for appointment', appointment.id, '- will update if needed');
+            shouldCreateNew = false;
+            shouldUpdate = true;
           } else {
             console.log('Google event not found for appointment', appointment.id, '- will create new one');
             shouldCreateNew = true;
@@ -97,42 +100,59 @@ export async function GET(request: NextRequest) {
       console.log('Google Event data being sent:', JSON.stringify(googleEvent, null, 2));
 
       try {
-        // Create new event
-        console.log('Creating new event for appointment', appointment.id);
-        const createResponse = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(googleEvent),
-        });
-
-        console.log('Create response status:', createResponse.status);
+        let response;
         
-        if (!createResponse.ok) {
-          const errorText = await createResponse.text();
-          console.log('Create response error:', errorText);
+        if (shouldCreateNew) {
+          // Create new event
+          console.log('Creating new event for appointment', appointment.id);
+          response = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(googleEvent),
+          });
+        } else if (shouldUpdate) {
+          // Update existing event
+          console.log('Updating existing event for appointment', appointment.id);
+          response = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${appointment.googleEventId}`, {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(googleEvent),
+          });
         }
 
-        if (createResponse.ok) {
-          const createdEvent = await createResponse.json();
-          const googleEventId = createdEvent.id;
+        console.log('Response status:', response?.status);
+        
+        if (!response?.ok) {
+          const errorText = await response?.text();
+          console.log('Response error:', errorText);
+        }
+
+        if (response?.ok) {
+          const eventData = await response.json();
+          const googleEventId = eventData.id;
           
-          // Update appointment with Google Event ID
-          const appointmentsData = JSON.parse(fs.readFileSync(appointmentsFile, 'utf8'));
-          const appointmentIndex = appointmentsData.appointments.findIndex((apt: any) => apt.id === appointment.id);
-          if (appointmentIndex !== -1) {
-            appointmentsData.appointments[appointmentIndex].googleEventId = googleEventId;
-            fs.writeFileSync(appointmentsFile, JSON.stringify(appointmentsData, null, 2));
+          // Update appointment with Google Event ID (if it's a new event)
+          if (shouldCreateNew) {
+            const appointmentsData = JSON.parse(fs.readFileSync(appointmentsFile, 'utf8'));
+            const appointmentIndex = appointmentsData.appointments.findIndex((apt: any) => apt.id === appointment.id);
+            if (appointmentIndex !== -1) {
+              appointmentsData.appointments[appointmentIndex].googleEventId = googleEventId;
+              fs.writeFileSync(appointmentsFile, JSON.stringify(appointmentsData, null, 2));
+            }
           }
           
-          console.log(`Created Google Calendar event for appointment ${appointment.id}`);
+          console.log(`${shouldCreateNew ? 'Created' : 'Updated'} Google Calendar event for appointment ${appointment.id}`);
           uploadedCount++;
         }
 
       } catch (error) {
-        console.error(`Failed to upload appointment ${appointment.id} to Google Calendar:`, error);
+        console.error(`Failed to ${shouldCreateNew ? 'upload' : 'update'} appointment ${appointment.id} to Google Calendar:`, error);
       }
     }
 

@@ -309,7 +309,49 @@
       "notes": "",
       "createdAt": "2025-10-24T05:00:17.487Z",
       "googleEventId": null
+    },
+    {
+      "id": 11,
+      "educatorId": "adele-adkins",
+      "educatorName": "Adele Adkins",
+      "studentId": "google-oauth2|116668263889504416152",
+      "studentName": "Yang",
+      "studentEmail": "yangfei077@gmail.com",
+      "title": "lesson",
+      "description": "",
+      "startTime": "2025-10-25T01:57:00",
+      "endTime": "2025-10-25T02:57:00",
+      "status": "pending",
+      "type": "lesson",
+      "location": "TBD",
+      "notes": "",
+      "createdAt": "2025-10-24T09:52:13.989Z",
+      "googleEventId": "8m695s8sprl8u4tf60fj0u91qg",
+      "rescheduleHistory": [
+        {
+          "originalStartTime": "2025-10-18T23:55:00",
+          "originalEndTime": "2025-10-18T24:55:00",
+          "rescheduledAt": "2025-10-24T09:52:47.341Z",
+          "rescheduledBy": "yangfei077@gmail.com",
+          "reason": "No reason provided"
+        },
+        {
+          "originalStartTime": "2025-10-18T01:57:00",
+          "originalEndTime": "2025-10-18T02:57:00",
+          "rescheduledAt": "2025-10-25T02:18:02.785Z",
+          "rescheduledBy": "yangfei077@gmail.com",
+          "reason": "No reason provided"
+        },
+        {
+          "originalStartTime": "2025-10-26T01:57:00",
+          "originalEndTime": "2025-10-26T02:57:00",
+          "rescheduledAt": "2025-10-25T02:18:27.548Z",
+          "rescheduledBy": "yangfei077@gmail.com",
+          "reason": "No reason provided"
+        }
+      ],
+      "updatedAt": "2025-10-25T02:18:27.548Z"
     }
   ],
-  "nextId": 11
+  "nextId": 12
 }
