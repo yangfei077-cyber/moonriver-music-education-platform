@@ -42,9 +42,6 @@ export default function HomePage() {
   // Fetch additional data based on user roles
   useEffect(() => {
     if (user && !loadingRoles) {
-      const isStudent = roles.includes('student');
-      const isEducator = roles.includes('educator');
-      
       if (isStudent) {
         fetchInterests();
         fetchEnrolledCourses();
@@ -53,7 +50,7 @@ export default function HomePage() {
         fetchTeachingAreas();
       }
     }
-  }, [user, roles, loadingRoles]);
+  }, [user, isStudent, isEducator, loadingRoles]);
 
 
   const fetchUserProfile = async () => {
